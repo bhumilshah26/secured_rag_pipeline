@@ -60,6 +60,7 @@ export default function ConnectorsPage() {
   const [busy, setBusy] = useState<string>("");
   const [configById, setConfigById] = useState<Record<string, string>>({});
   const [filesById, setFilesById] = useState<Record<string, ConnectorFile[]>>({});
+  const [queryById, setQueryById] = useState<Record<string, string>>({});
   const [selectedById, setSelectedById] = useState<Record<string, Set<string>>>({});
   const [rolesById, setRolesById] = useState<Record<string, string[]>>({});
   const [statusById, setStatusById] = useState<Record<string, boolean>>({});
@@ -173,12 +174,13 @@ export default function ConnectorsPage() {
   async function onListFiles(c: Connector) {
     setError("");
     setBusy(c.id);
-    setMsg(`Listing files in "${c.display_name}"…`);
+    const q = queryById[c.id]?.trim();
+    setMsg(q ? `Searching "${q}" in "${c.display_name}"…` : `Listing "${c.display_name}"…`);
     try {
-      const files = await listConnectorFiles(c.id);
+      const files = await listConnectorFiles(c.id, q);
       setFilesById((p) => ({ ...p, [c.id]: files }));
       setSelectedById((p) => ({ ...p, [c.id]: new Set() }));
-      setMsg(`Found ${files.length} file(s). Select which to index.`);
+      setMsg(`Found ${files.length} item(s). Select which to index.`);
     } catch (err) {
       setMsg("");
       setError((err as Error).message);
@@ -297,8 +299,18 @@ export default function ConnectorsPage() {
                     {busy === c.id ? <span className="spinner" /> : "Connect"}
                   </button>
                   <button className="btn btn-ghost btn-sm" onClick={() => onStatus(c)}>Check status</button>
-                  <button className="btn btn-ghost btn-sm" disabled={busy === c.id} onClick={() => onListFiles(c)}>
-                    List files
+                </div>
+
+                <div className="row" style={{ marginTop: 10 }}>
+                  <input
+                    className="input grow"
+                    placeholder="Search files/channels by name (blank = list all)…"
+                    value={queryById[c.id] ?? ""}
+                    onChange={(e) => setQueryById((p) => ({ ...p, [c.id]: e.target.value }))}
+                    onKeyDown={(e) => e.key === "Enter" && onListFiles(c)}
+                  />
+                  <button className="btn btn-primary btn-sm" disabled={busy === c.id} onClick={() => onListFiles(c)}>
+                    {busy === c.id ? <span className="spinner" /> : "Search"}
                   </button>
                 </div>
 

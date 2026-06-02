@@ -164,8 +164,9 @@ export type ConnectorFile = {
   mime_type: string;
 };
 
-export function listConnectorFiles(sourceId: string) {
-  return request<ConnectorFile[]>(`/connectors/${sourceId}/files`, { method: "GET" });
+export function listConnectorFiles(sourceId: string, q?: string) {
+  const qs = q && q.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+  return request<ConnectorFile[]>(`/connectors/${sourceId}/files${qs}`, { method: "GET" });
 }
 
 export function ingestSelected(

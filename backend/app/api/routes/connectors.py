@@ -159,13 +159,15 @@ def connector_status(
 @router.get("/{source_id}/files", response_model=list[ConnectorFile])
 def list_files(
     source_id: str,
+    q: str | None = None,
     db: Session = Depends(get_db),
     user: CurrentUser = Depends(require_capability("connect_source")),
 ) -> list[ConnectorFile]:
-    """List files available from the source WITHOUT ingesting, so the user can choose."""
+    """List/search items available from the source WITHOUT ingesting, so the user can choose.
+    `q` searches by name/title (server-side where the toolkit supports it)."""
     src = _owned_source(db, source_id=source_id, tenant_id=user.tenant_id)
     connector = get_connector(src.kind.value, user.tenant_id)
-    return [ConnectorFile(**f) for f in connector.list_items(src.config)]
+    return [ConnectorFile(**f) for f in connector.list_items(src.config, query=q)]
 
 
 def _ingest_fetched(db, *, user, src, external_ids, allowed_roles) -> dict:
