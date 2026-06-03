@@ -116,6 +116,12 @@ export function listDocuments() {
   return request<DocumentOut[]>("/documents", { method: "GET" });
 }
 
+export function deleteDocument(docId: string) {
+  return request<{ deleted: boolean; document_id: string }>(`/documents/${docId}`, {
+    method: "DELETE",
+  });
+}
+
 // ---- Connectors ----
 export const CONNECTOR_KINDS = [
   "gdrive",

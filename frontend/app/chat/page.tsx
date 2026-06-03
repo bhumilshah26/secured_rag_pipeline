@@ -2,7 +2,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Topbar from "@/app/components/Topbar";
-import { chat, getToken, ingestText, uploadFile, type ChatResponse } from "@/lib/api";
+import {
+  chat,
+  getToken,
+  ingestText,
+  listDocuments,
+  deleteDocument,
+  uploadFile,
+  type ChatResponse,
+  type DocumentOut,
+} from "@/lib/api";
 
 const ALL_ROLES = ["ADMIN", "HR", "ANALYST", "MANAGER", "VIEWER"];
 
@@ -15,7 +24,32 @@ export default function ChatPage() {
   const [uploadMsg, setUploadMsg] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadRoles, setUploadRoles] = useState<string[]>(["ADMIN", "VIEWER"]);
+  const [docs, setDocs] = useState<DocumentOut[] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  async function toggleIndexed() {
+    setError("");
+    if (docs !== null) {
+      setDocs(null); // hide
+      return;
+    }
+    try {
+      setDocs(await listDocuments()); // show
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function removeDoc(d: DocumentOut) {
+    if (!window.confirm(`Delete "${d.title}" and its embeddings?`)) return;
+    setError("");
+    try {
+      await deleteDocument(d.id);
+      setDocs((prev) => (prev ? prev.filter((x) => x.id !== d.id) : prev));
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
 
   useEffect(() => {
     if (!getToken()) router.replace("/login");
@@ -118,7 +152,35 @@ export default function ChatPage() {
             <button className="btn btn-ghost" onClick={seedDoc} type="button">
               Seed sample
             </button>
+            <button className="btn btn-ghost" onClick={toggleIndexed} type="button">
+              {docs !== null ? "Hide indexed" : "Indexed files"}
+            </button>
           </div>
+
+          {docs && (
+            <div style={{ marginTop: 12 }}>
+              <div className="divider" />
+              <div className="section-title">Indexed documents ({docs.length})</div>
+              {docs.length === 0 && <p className="muted" style={{ fontSize: 13 }}>Nothing indexed yet.</p>}
+              <div className="scroll">
+                {docs.map((d) => (
+                  <div key={d.id} className="file-row">
+                    <span style={{ flex: 1, fontSize: 13 }}>{d.title}</span>
+                    <span className="muted" style={{ fontSize: 11 }}>
+                      {d.chunk_count} chunks · {d.status} · {d.allowed_roles.join(", ")}
+                    </span>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      title="Delete document + embeddings"
+                      onClick={() => removeDoc(d)}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {uploading && <div className="toast toast-ok"><span className="spinner" /> working…</div>}
           {!uploading && uploadMsg && <div className="toast toast-ok">{uploadMsg}</div>}
         </div>

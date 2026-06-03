@@ -83,10 +83,14 @@ async def upload(
 def list_documents(
     db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)
 ) -> list[DocumentOut]:
-    docs = db.scalars(
-        select(Document).where(Document.tenant_id == user.tenant_id)
-        .order_by(Document.created_at.desc())
-    ).all()
+    # Role-scoped: ADMIN sees all tenant docs; others only docs their role may retrieve.
+    stmt = select(Document).where(Document.tenant_id == user.tenant_id)
+    if user.role is not Role.ADMIN:
+        stmt = (
+            stmt.join(DocumentPermission, DocumentPermission.document_id == Document.id)
+            .where(DocumentPermission.role == user.role)
+        )
+    docs = db.scalars(stmt.order_by(Document.created_at.desc()).distinct()).all()
     return [_to_out(db, d) for d in docs]
 
 
@@ -106,7 +110,7 @@ def set_permissions(
 ) -> DocumentOut:
     doc = _get_owned_doc(db, doc_id=doc_id, tenant_id=user.tenant_id)
     db.query(DocumentPermission).filter(DocumentPermission.document_id == doc.id).delete()
-    roles = set(req.allowed_roles) or {Role.VIEWER}
+    roles = set(req.allowed_roles) | {Role.ADMIN}  # ADMIN access is compulsory
     for role in roles:
         db.add(DocumentPermission(document_id=doc.id, tenant_id=user.tenant_id, role=role))
     db.commit()
@@ -121,3 +125,21 @@ def set_permissions(
         user_id=user.id, document_ids=[doc.id], response_status="200",
     )
     return _to_out(db, doc)
+
+
+@router.delete("/{doc_id}")
+def delete_document(
+    doc_id: str,
+    db: Session = Depends(get_db),
+    user: CurrentUser = Depends(require_capability("ingest")),
+) -> dict:
+    """Delete an indexed document: its DB row (+ permissions via cascade) and its vectors."""
+    doc = _get_owned_doc(db, doc_id=doc_id, tenant_id=user.tenant_id)
+    qdrant_store.delete_document(tenant_id=user.tenant_id, document_id=doc.id)
+    db.delete(doc)  # cascades document_permissions
+    db.commit()
+    audit.record_event(
+        db, event_type="document.delete", tenant_id=user.tenant_id,
+        user_id=user.id, document_ids=[doc_id], response_status="200",
+    )
+    return {"deleted": True, "document_id": doc_id}

@@ -29,7 +29,9 @@ def ingest_document(
     checksum = hashlib.sha256(
         "".join(s.text for s in sections).encode("utf-8")
     ).hexdigest()
-    role_values = sorted({r.value for r in allowed_roles}) or [Role.VIEWER.value]
+    # ADMIN always has access — included on every document by default.
+    role_set = set(allowed_roles) | {Role.ADMIN}
+    role_values = sorted(r.value for r in role_set)
 
     doc = Document(
         tenant_id=tenant_id,
@@ -43,7 +45,7 @@ def ingest_document(
     db.add(doc)
     db.flush()  # assign doc.id
 
-    for role in {r for r in allowed_roles} or {Role.VIEWER}:
+    for role in role_set:
         db.add(DocumentPermission(document_id=doc.id, tenant_id=tenant_id, role=role))
 
     chunks = chunk_sections(
