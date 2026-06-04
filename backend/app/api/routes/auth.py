@@ -13,6 +13,7 @@ from app.schemas import (
     RegisterRequest,
     TokenResponse,
     UpdateProfileRequest,
+    UserOut,
 )
 from app.security.auth import (
     CurrentUser,
@@ -99,6 +100,19 @@ def update_me(
         response_status="200",
     )
     return MeResponse(id=u.id, email=u.email, role=u.role, tenant_id=u.tenant_id)
+
+
+@router.get("/users", response_model=list[UserOut])
+def list_users(
+    db: Session = Depends(get_db),
+    admin: CurrentUser = Depends(require_capability("manage_tenant")),
+) -> list[User]:
+    """List members of the admin's tenant (tenant-scoped, ADMIN only)."""
+    return list(
+        db.scalars(
+            select(User).where(User.tenant_id == admin.tenant_id).order_by(User.created_at)
+        ).all()
+    )
 
 
 @router.post("/users", status_code=201)

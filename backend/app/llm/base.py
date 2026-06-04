@@ -1,5 +1,6 @@
 """LLM provider interface. The retrieval pipeline depends only on this contract."""
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 
 
 class LLMProvider(ABC):
@@ -12,3 +13,13 @@ class LLMProvider(ABC):
     def generate(self, *, system: str, context: str, query: str) -> str:
         """Generate an answer. Implementations MUST keep `context` and `query` in
         dedicated, non-overlapping slots and treat `context` as data, not instructions."""
+
+    def stream(self, *, system: str, context: str, query: str) -> Iterator[str]:
+        """Yield the answer incrementally. Default falls back to generating the full answer
+        and emitting it in small word groups, so any provider 'streams' for the UI.
+        Providers with native token streaming override this."""
+        text = self.generate(system=system, context=context, query=query)
+        words = text.split(" ")
+        for i in range(0, len(words), 3):
+            group = " ".join(words[i : i + 3])
+            yield group + (" " if i + 3 < len(words) else "")

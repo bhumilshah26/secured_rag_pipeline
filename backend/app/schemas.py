@@ -1,7 +1,7 @@
 """Pydantic request/response DTOs."""
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.models import Role, SourceKind
 
@@ -37,6 +37,15 @@ class MeResponse(BaseModel):
     email: EmailStr
     role: Role
     tenant_id: str
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    email: EmailStr
+    role: Role
+    is_active: bool
+    created_at: datetime
 
 
 class UpdateProfileRequest(BaseModel):

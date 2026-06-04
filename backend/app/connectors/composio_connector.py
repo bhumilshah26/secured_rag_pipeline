@@ -81,6 +81,39 @@ _DEFAULT_CONFIGS: dict[str, dict] = {
         "fetch_items_path": "data.messages",
         "fetch_item_text_field": "text",
     },
+    "onedrive": {
+        "list_action": "ONE_DRIVE_LIST_FILES_AND_FOLDERS",
+        "list_arguments": {},  # lists children of root by default
+        "items_path": "data.value",
+        "id_field": "id",
+        "title_field": "name",
+        "mime_field": "file.mimeType",  # nested; folders won't have this
+        # Search: OneDrive uses a dedicated search endpoint; the query goes in the path/arg.
+        "search_arg": "q",
+        "search_template": "{q}",
+        "search_action": "ONE_DRIVE_SEARCH_FILES",  # override list_action when searching
+        "fetch_action": "ONE_DRIVE_DOWNLOAD_FILE",
+        "fetch_id_arg": "item_id",
+        "fetch_url_path": "data.downloaded_file_content.s3url",
+        "fetch_mime_path": "data.downloaded_file_content.mimetype",
+        "fetch_title_path": "data.name",
+    },
+    "sharepoint": {
+        "list_action": "SHAREPOINT_LIST_ITEMS",
+        "list_arguments": {},  # requires site_id/list_id depending on tenant setup
+        "items_path": "data.value",
+        "id_field": "id",
+        "title_field": "fields.Title",  # or "name" for drive items
+        "mime_field": "file.mimeType",
+        # Search: SharePoint search query injected into the search arg.
+        "search_arg": "query_text",
+        "search_template": "{q}",
+        "search_action": "SHAREPOINT_SEARCH_QUERY",
+        "fetch_action": "SHAREPOINT_GET_ITEM",
+        "fetch_id_arg": "item_id",
+        "fetch_content_path": "data.fields",
+        "fetch_title_path": "data.name",
+    },
 }
 
 # Native Google Workspace types must be exported to a downloadable format.

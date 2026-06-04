@@ -11,11 +11,6 @@ from sqlalchemy.orm import Session
 from app.models import AuditLog
 from app.security.pii import mask_pii
 
-
-def hash_query(query: str) -> str:
-    return hashlib.sha256(query.strip().encode("utf-8")).hexdigest()
-
-
 def record_event(
     db: Session,
     *,
@@ -33,7 +28,7 @@ def record_event(
         tenant_id=tenant_id,
         user_id=user_id,
         event_type=event_type,
-        query_hash=hash_query(query) if query else None,
+        query_hash=mask_pii(query) if query else None,
         document_ids=document_ids or [],
         authz_decision=authz_decision,
         security_risk=mask_pii(security_risk) if security_risk else None,
