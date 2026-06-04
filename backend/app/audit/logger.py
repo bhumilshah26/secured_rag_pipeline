@@ -1,11 +1,9 @@
 """PII-safe audit logging.
 
-Persists ONLY: user id, tenant id, timestamp, query HASH, retrieved document IDs,
+Persists ONLY: user id, tenant id, timestamp, query masking, retrieved document IDs,
 authorization decision, security risk, model used, response status.
 NEVER persists: raw query, full prompts, chunk text, raw documents. Any free-text field
 is PII-masked before write as defense-in-depth."""
-import hashlib
-
 from sqlalchemy.orm import Session
 
 from app.models import AuditLog

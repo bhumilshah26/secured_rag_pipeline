@@ -34,8 +34,8 @@ export default function LoginPage() {
         <div className="row" style={{ gap: 12 }}>
           <span className="logo" style={{ width: 38, height: 38, borderRadius: 10, display: "grid", placeItems: "center", background: "var(--primary)", color: "var(--primary-ink)", fontSize: 19 }}>⛨</span>
           <div>
-            <h1 style={{ fontSize: 22 }}>Secured RAG</h1>
-            <p className="muted" style={{ margin: 0, fontSize: 13 }}>Sign in to your workspace</p>
+            <h1 style={{ fontSize: 22 }}>Aegis</h1>
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>Secured RAG · sign in to your workspace</p>
           </div>
         </div>
 

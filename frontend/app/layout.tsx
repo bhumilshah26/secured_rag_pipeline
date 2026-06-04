@@ -13,8 +13,8 @@ const fraunces = Fraunces({
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Secured RAG",
-  description: "Secure, multi-tenant enterprise knowledge platform",
+  title: "Aegis · Secured RAG",
+  description: "Aegis — secure, multi-tenant enterprise knowledge platform",
 };
 
 // Set theme before paint to avoid a flash of the wrong theme.

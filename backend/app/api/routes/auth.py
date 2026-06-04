@@ -135,3 +135,24 @@ def create_user(
     db.add(user)
     db.commit()
     return {"id": user.id, "email": user.email, "role": user.role.value}
+
+
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    admin: CurrentUser = Depends(require_capability("manage_tenant")),
+) -> dict:
+    """Remove a member from the admin's tenant. Admins cannot delete themselves."""
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot remove your own account")
+    user = db.get(User, user_id)
+    if not user or user.tenant_id != admin.tenant_id:  # tenant isolation
+        raise HTTPException(status_code=404, detail="User not found")
+    db.delete(user)
+    db.commit()
+    audit.record_event(
+        db, event_type="user.delete", tenant_id=admin.tenant_id, user_id=admin.id,
+        response_status="200",
+    )
+    return {"deleted": True, "user_id": user_id}

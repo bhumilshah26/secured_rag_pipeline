@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { createUser, listUsers, type UserRow } from "@/lib/api";
+import { createUser, deleteUser, listUsers, type UserRow } from "@/lib/api";
 import { ALL_ROLES, CAPABILITY_MATRIX, can, type Role } from "@/lib/roles";
 import { useMe } from "@/app/components/AppShell";
 import { useToast } from "@/app/components/Toast";
@@ -16,6 +16,17 @@ const ROLE_BLURB: Record<Role, string> = {
   ANALYST: "Query the knowledge they're authorized to see",
   VIEWER: "Query the knowledge they're authorized to see",
 };
+const ROLE_COLOR: Record<Role, string> = {
+  ADMIN: "var(--accent)",
+  MANAGER: "var(--primary)",
+  HR: "var(--info-ink)",
+  ANALYST: "var(--success)",
+  VIEWER: "var(--ink-muted)",
+};
+const pillStyle = (r: Role): React.CSSProperties => ({
+  background: `color-mix(in oklch, ${ROLE_COLOR[r]} 15%, transparent)`,
+  color: ROLE_COLOR[r],
+});
 
 export default function TeamPage() {
   const me = useMe();
@@ -50,6 +61,15 @@ export default function TeamPage() {
     finally { setBusy(false); }
   }
 
+  async function onRemove(u: UserRow) {
+    if (!window.confirm(`Remove ${u.email} from the workspace?`)) return;
+    try {
+      await deleteUser(u.id);
+      toast.push(`Removed ${u.email}`, "success");
+      refresh();
+    } catch (e) { toast.push((e as Error).message, "error"); }
+  }
+
   const byRole = (r: Role) => (users ?? []).filter((u) => u.role === r);
 
   return (
@@ -62,42 +82,75 @@ export default function TeamPage() {
         <Button variant="primary" onClick={() => setOpen(true)}><Icon name="plus" size={16} /> Add member</Button>
       </div>
 
-      {!users && <Panel className="stack"><Skeleton h={18} /><Skeleton h={40} /><Skeleton h={40} /></Panel>}
+      {!users && <Panel className="stack"><Skeleton h={18} /><Skeleton h={48} /><Skeleton h={48} /></Panel>}
 
       {users && (
-        <div className="stack" style={{ gap: 18 }}>
-          {HIERARCHY.map((r, tier) => {
-            const members = byRole(r);
-            return (
-              <div key={r}>
-                <div className="row" style={{ gap: 10, marginBottom: 8 }}>
-                  <span className="tier-rail" data-tier={tier} />
-                  <h3 style={{ fontFamily: "var(--font-sans)", fontSize: 15 }}>{r}</h3>
-                  <Badge>{members.length}</Badge>
-                  <span className="faint" style={{ fontSize: 12.5 }}>{ROLE_BLURB[r]}</span>
-                </div>
-                {members.length === 0 ? (
-                  <p className="faint" style={{ fontSize: 13, margin: "0 0 0 22px" }}>No members with this role.</p>
-                ) : (
-                  <div className="grid" style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", marginLeft: 22 }}>
-                    {members.map((u) => (
-                      <Panel key={u.id} className="panel-pad-sm row" style={{ gap: 10 }}>
-                        <span className="avatar" style={{ width: 32, height: 32, fontSize: 13 }}>{u.email[0]?.toUpperCase()}</span>
-                        <div className="grow" style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13.5, fontWeight: 550, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.email}</div>
-                          <div className="faint" style={{ fontSize: 11 }}>
-                            {u.id === me?.id ? "you · " : ""}{new Date(u.created_at).toLocaleDateString()}
-                          </div>
-                        </div>
-                        {!u.is_active && <Badge tone="warning">inactive</Badge>}
-                      </Panel>
-                    ))}
-                  </div>
-                )}
+        <>
+          {/* distribution strip */}
+          <Panel className="panel-pad-sm" style={{ marginBottom: 16 }}>
+            <div className="row-between" style={{ flexWrap: "wrap", gap: 10 }}>
+              <span className="muted" style={{ fontSize: 13 }}>
+                <strong style={{ color: "var(--ink)" }}>{users.length}</strong>{" "}
+                {users.length === 1 ? "member" : "members"} across {HIERARCHY.filter((r) => byRole(r).length).length} roles
+              </span>
+              <div className="row" style={{ gap: 6 }}>
+                {HIERARCHY.filter((r) => byRole(r).length > 0).map((r) => (
+                  <span key={r} className="role-pill" style={pillStyle(r)}>
+                    <span className="dot" /> {r} {byRole(r).length}
+                  </span>
+                ))}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          </Panel>
+
+          {/* role-grouped directory */}
+          <div className="stack" style={{ gap: 18 }}>
+            {HIERARCHY.map((r) => {
+              const members = byRole(r);
+              return (
+                <section key={r}>
+                  <div className="row" style={{ gap: 10, marginBottom: 8 }}>
+                    <span className="role-pill" style={pillStyle(r)}><span className="dot" /> {r}</span>
+                    <span className="faint" style={{ fontSize: 12.5 }}>{ROLE_BLURB[r]}</span>
+                    <div className="grow" />
+                    <Badge>{members.length}</Badge>
+                  </div>
+                  {members.length === 0 ? (
+                    <p className="faint" style={{ fontSize: 13, margin: "0 0 0 2px" }}>No members yet.</p>
+                  ) : (
+                    <Panel style={{ padding: 4 }}>
+                      {members.map((u) => (
+                        <div key={u.id} className="member-row">
+                          <span className="avatar" style={{ width: 38, height: 38, fontSize: 15 }}>
+                            {u.email[0]?.toUpperCase()}
+                          </span>
+                          <div className="grow" style={{ minWidth: 0 }}>
+                            <div className="row" style={{ gap: 7 }}>
+                              <span style={{ fontSize: 14, fontWeight: 550, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {u.email}
+                              </span>
+                              {u.id === me?.id && <Badge tone="primary">you</Badge>}
+                            </div>
+                            <div className="faint" style={{ fontSize: 11.5 }}>
+                              Joined {new Date(u.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                            </div>
+                          </div>
+                          {u.is_active
+                            ? <span className="row" style={{ gap: 6 }}><span className="dot-live" /><span className="faint" style={{ fontSize: 12 }}>active</span></span>
+                            : <Badge tone="warning">inactive</Badge>}
+                          {u.id !== me?.id && (
+                            <Button variant="danger" size="icon" aria-label={`Remove ${u.email}`}
+                              onClick={() => onRemove(u)}><Icon name="trash" size={15} /></Button>
+                          )}
+                        </div>
+                      ))}
+                    </Panel>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        </>
       )}
 
       <details style={{ marginTop: 24 }}>
@@ -111,7 +164,9 @@ export default function TeamPage() {
                   <td>{row.cap}</td>
                   {ALL_ROLES.map((r) => (
                     <td key={r} style={{ textAlign: "center" }}>
-                      {row.roles.includes(r) ? <span style={{ color: "var(--success)", display: "inline-flex" }}><Icon name="check" size={15} /></span> : <span className="faint">·</span>}
+                      {row.roles.includes(r)
+                        ? <span style={{ color: "var(--success)", display: "inline-flex" }}><Icon name="check" size={15} /></span>
+                        : <span style={{ color: "var(--danger)", opacity: 0.55, display: "inline-flex" }}><Icon name="x" size={14} /></span>}
                     </td>
                   ))}
                 </tr>
@@ -127,7 +182,8 @@ export default function TeamPage() {
         <form onSubmit={onCreate} className="stack" style={{ gap: 12 }}>
           <Field label="Email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="person@company.com" required /></Field>
           <Field label="Temporary password" hint="At least 8 characters."><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></Field>
-          <Field label="Role"><Select value={role} onChange={(e) => setRole(e.target.value)}>{ALL_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}</Select></Field>
+          <Field label="Role"><Select value={role} onChange={setRole} ariaLabel="Role"
+            options={ALL_ROLES.map((r) => ({ value: r, label: r }))} /></Field>
         </form>
       </Dialog>
     </div>

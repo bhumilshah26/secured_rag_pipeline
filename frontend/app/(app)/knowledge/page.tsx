@@ -127,9 +127,8 @@ export default function KnowledgePage() {
 
       <div className="row" style={{ marginBottom: 12 }}>
         <Input className="grow" placeholder="Filter by title or status…" value={filter} onChange={(e) => setFilter(e.target.value)} />
-        <Select value={range} onChange={(e) => setRange(e.target.value as TimeRange)} style={{ maxWidth: 170 }}>
-          {TIME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </Select>
+        <Select value={range} onChange={(v) => setRange(v as TimeRange)} ariaLabel="Time range" style={{ maxWidth: 180 }}
+          options={TIME_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
       </div>
 
       {!docs && <Panel className="stack"><Skeleton h={16} /><Skeleton h={16} /><Skeleton h={16} /></Panel>}

@@ -116,6 +116,15 @@ _DEFAULT_CONFIGS: dict[str, dict] = {
     },
 }
 
+# Our connector kind -> Composio toolkit slug (as returned by connected_accounts).
+_TOOLKIT_SLUG = {
+    "gdrive": "googledrive",
+    "onedrive": "one_drive",
+    "sharepoint": "sharepoint",
+    "confluence": "confluence",
+    "slack": "slack",
+}
+
 # Native Google Workspace types must be exported to a downloadable format.
 _GOOGLE_EXPORT = {
     "application/vnd.google-apps.document":
@@ -197,7 +206,9 @@ class ComposioConnector(Connector):
         }
 
     def connection_status(self) -> dict:
-        """List connected accounts via REST: GET /api/v3/connected_accounts?user_ids=..."""
+        """Report whether THIS toolkit has an ACTIVE connection for the tenant.
+        (Previously counted any account across all toolkits/statuses, so an expired or
+        unrelated connection wrongly read as 'connected'.)"""
         resp = httpx.get(
             f"{_base()}/api/v3/connected_accounts",
             headers=_headers(),
@@ -206,15 +217,18 @@ class ComposioConnector(Connector):
         )
         resp.raise_for_status()
         items = _dig(resp.json(), "items") or []
+        want = _TOOLKIT_SLUG.get(self.kind, self.kind).lower()
+
+        def _slug(a) -> str:
+            return str(_dig(a, "toolkit.slug") or _dig(a, "toolkit_slug") or "").lower()
+
+        mine = [a for a in items if _slug(a) == want]
+        active = [a for a in mine if str(_dig(a, "status") or "").upper() == "ACTIVE"]
         return {
-            "connected": len(items) > 0,
+            "connected": len(active) > 0,
             "accounts": [
-                {
-                    "id": _dig(a, "id"),
-                    "toolkit": _dig(a, "toolkit.slug") or _dig(a, "toolkit_slug"),
-                    "status": _dig(a, "status"),
-                }
-                for a in items
+                {"id": _dig(a, "id"), "toolkit": _slug(a), "status": _dig(a, "status")}
+                for a in mine
             ],
         }
 

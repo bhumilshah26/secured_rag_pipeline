@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     prompt_guard_flag_threshold: int = 40
     prompt_guard_block_threshold: int = 70
 
+    # Response PII masking (category + role aware; see security/pii.mask_for_role)
+    pii_mask_in_response: bool = True
+
     # Retrieval
     retrieval_top_k: int = 6              # candidate chunks pulled from Qdrant
     retrieval_score_threshold: float = 0.3  # cosine score below this is treated as irrelevant

@@ -123,7 +123,7 @@ export function chat(query: string) {
 export type StreamHandlers = {
   onMeta?: (e: { model_used: string; security_risk: string }) => void;
   onToken?: (text: string) => void;
-  onDone?: (e: { citations: Citation[]; security_risk: string; model_used: string }) => void;
+  onDone?: (e: { answer?: string; citations: Citation[]; security_risk: string; model_used: string }) => void;
   onBlocked?: (detail: string) => void;
   onError?: (detail: string) => void;
 };
@@ -176,6 +176,12 @@ export type UserRow = {
 
 export function listUsers() {
   return request<UserRow[]>("/auth/users", { method: "GET" });
+}
+
+export function deleteUser(userId: string) {
+  return request<{ deleted: boolean; user_id: string }>(`/auth/users/${userId}`, {
+    method: "DELETE",
+  });
 }
 
 export function ingestText(title: string, content: string, allowed_roles: string[]) {

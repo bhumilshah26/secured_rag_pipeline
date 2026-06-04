@@ -51,8 +51,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="brand">
             <span className="logo"><Icon name="shield" size={18} /></span>
             <div>
-              <div className="name">Secured RAG</div>
-              <div className="sub">Knowledge, isolated &amp; audited</div>
+              <div className="name">Aegis</div>
+              <div className="sub">Secured Enterprise RAG</div>
             </div>
           </div>
           <nav style={{ display: "grid", gap: 2 }}>

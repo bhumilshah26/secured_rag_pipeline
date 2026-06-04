@@ -128,9 +128,10 @@ export default function ConnectorsPage() {
         footer={<><Button variant="ghost" onClick={() => setAddOpen(false)}>Cancel</Button>
           <Button variant="primary" loading={busy === "register"} onClick={onRegister}>Add source</Button></>}>
         <Field label="Type">
-          <Select value={kind} onChange={(e) => setKind(e.target.value)}>
-            {CONNECTOR_KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k] ?? k}</option>)}
-          </Select>
+          <Select value={kind} onChange={setKind} ariaLabel="Source type"
+            options={CONNECTOR_KINDS.map((k) => ({
+              value: k, label: KIND_LABEL[k] ?? k, icon: <KindIcon kind={k} size={16} />,
+            }))} />
         </Field>
         <Field label="Display name" hint="A label for this source in your workspace.">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={KIND_LABEL[kind]} />

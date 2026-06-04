@@ -313,7 +313,7 @@ data, never instructions (enforced in the prompt template).
 ## 9. Audit Logging Module
 
 `audit/logger.py` writes structured rows containing only: user id, tenant id, timestamp,
-**query hash** (never raw query), retrieved **document IDs only**, authorization decision,
+**query masking** (never raw query), retrieved **document IDs only**, authorization decision,
 security risk, model used, and response status. PII (emails, phones, bank/card numbers) is
 masked via `security/pii.py` before anything is persisted. Full prompts, chunk text, and raw
 documents are never logged.

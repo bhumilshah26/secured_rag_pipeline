@@ -2,14 +2,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { getAudit, type AuditRow } from "@/lib/api";
 import { can } from "@/lib/roles";
-import { TIME_OPTIONS, withinRange, type TimeRange } from "@/lib/time";
 import { useMe } from "@/app/components/AppShell";
 import { useToast } from "@/app/components/Toast";
-import { Badge, EmptyState, Input, Panel, RiskBadge, Select, Skeleton } from "@/app/components/ui";
+import { Badge, Button, EmptyState, Input, Panel, RiskBadge, Select, Skeleton } from "@/app/components/ui";
+import { Icon } from "@/app/components/icons";
+import { DatePicker } from "@/app/components/DatePicker";
 
 function riskOf(s: string | null) {
   if (!s) return "";
   return s.split(":")[0];
+}
+
+function inDateRange(iso: string, from: string, to: string): boolean {
+  const t = new Date(iso).getTime();
+  if (from && t < new Date(`${from}T00:00:00`).getTime()) return false;
+  if (to && t > new Date(`${to}T23:59:59.999`).getTime()) return false;
+  return true;
 }
 
 export default function AuditPage() {
@@ -19,7 +27,8 @@ export default function AuditPage() {
   const [event, setEvent] = useState("");
   const [risk, setRisk] = useState("");
   const [text, setText] = useState("");
-  const [range, setRange] = useState<TimeRange>("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
 
   useEffect(() => {
     if (!can(me?.role, "read_audit")) return;
@@ -30,7 +39,7 @@ export default function AuditPage() {
   const eventTypes = useMemo(() => Array.from(new Set((rows ?? []).map((r) => r.event_type))).sort(), [rows]);
 
   const shown = (rows ?? []).filter((r) => {
-    if (!withinRange(r.created_at, range)) return false;
+    if (!inDateRange(r.created_at, from, to)) return false;
     if (event && r.event_type !== event) return false;
     if (risk && riskOf(r.security_risk) !== risk) return false;
     if (text) {
@@ -55,21 +64,30 @@ export default function AuditPage() {
       </div>
 
       <Panel className="panel-pad-sm" style={{ marginBottom: 12 }}>
-        <div className="row">
-          <Select value={event} onChange={(e) => setEvent(e.target.value)} style={{ maxWidth: 200 }}>
-            <option value="">All events</option>
-            {eventTypes.map((e) => <option key={e} value={e}>{e}</option>)}
-          </Select>
-          <Select value={risk} onChange={(e) => setRisk(e.target.value)} style={{ maxWidth: 160 }}>
-            <option value="">All risk</option>
-            <option value="ALLOW">Allowed</option>
-            <option value="FLAG">Flagged</option>
-            <option value="BLOCK">Blocked</option>
-          </Select>
-          <Select value={range} onChange={(e) => setRange(e.target.value as TimeRange)} style={{ maxWidth: 170 }}>
-            {TIME_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </Select>
-          <Input className="grow" placeholder="Filter by user, hash, model, status…" value={text} onChange={(e) => setText(e.target.value)} />
+        <div className="row" style={{ gap: 10, alignItems: "center" }}>
+          <Select value={event} onChange={setEvent} ariaLabel="Filter by event" style={{ width: 180 }}
+            options={[{ value: "", label: "All events" }, ...eventTypes.map((e) => ({ value: e, label: e }))]} />
+          <Select value={risk} onChange={setRisk} ariaLabel="Filter by risk" style={{ width: 150 }}
+            options={[
+              { value: "", label: "All risk" },
+              { value: "ALLOW", label: "Allowed" },
+              { value: "FLAG", label: "Flagged" },
+              { value: "BLOCK", label: "Blocked" },
+            ]} />
+          <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
+            <span className="hint" style={{ whiteSpace: "nowrap" }}>From</span>
+            <DatePicker value={from} max={to || undefined} onChange={setFrom} placeholder="Start date"
+              ariaLabel="From date" style={{ width: 168 }} />
+            <span className="hint" style={{ whiteSpace: "nowrap" }}>To</span>
+            <DatePicker value={to} min={from || undefined} onChange={setTo} placeholder="End date"
+              ariaLabel="To date" style={{ width: 168 }} />
+            {(from || to) && (
+              <Button variant="ghost" size="icon" aria-label="Clear dates"
+                onClick={() => { setFrom(""); setTo(""); }}><Icon name="x" size={15} /></Button>
+            )}
+          </div>
+          <Input className="grow" style={{ minWidth: 180 }} placeholder="Filter by user, hash, model, status…"
+            value={text} onChange={(e) => setText(e.target.value)} />
         </div>
       </Panel>
 
@@ -83,7 +101,7 @@ export default function AuditPage() {
         <div className="table-wrap">
           <table className="data">
             <thead><tr>
-              <th>Time</th><th>Event</th><th>User</th><th>Risk</th><th>Docs</th><th>Model</th><th>Status</th><th>Query hash</th>
+              <th>Time</th><th>Event</th><th>User</th><th>Risk</th><th>Docs</th><th>Model</th><th>Status</th><th>Query</th>
             </tr></thead>
             <tbody>
               {shown.map((r) => (

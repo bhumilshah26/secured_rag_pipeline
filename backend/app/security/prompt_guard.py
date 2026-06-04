@@ -11,10 +11,16 @@ from app.config import settings
 # (compiled pattern, weight, category)
 _SIGNALS: list[tuple[re.Pattern, int, str]] = [
     # Instruction override
-    (re.compile(r"\bignore\s+(all\s+)?(previous|prior|above)\s+(instructions|prompts?)", re.I), 45, "instruction_override"),
-    (re.compile(r"\bdisregard\s+(the\s+)?(system|previous|above)", re.I), 40, "instruction_override"),
-    (re.compile(r"\boverride\s+(the\s+)?(system|safety|rules)", re.I), 40, "instruction_override"),
-    (re.compile(r"\bforget\s+(everything|all|your)\b", re.I), 30, "instruction_override"),
+    # Tolerant of intervening words ("ignore the previous instructions and permissions").
+    (re.compile(r"\bignore\b[\w\s,'\"-]{0,40}?\b(instruction|prompt|rule|permission|restriction|guideline|direction|context|policy)s?\b", re.I), 45, "instruction_override"),
+    (re.compile(r"\bdisregard\b[\w\s,'\"-]{0,40}?\b(system|previous|above|instruction|rule|permission|prompt)s?\b", re.I), 40, "instruction_override"),
+    (re.compile(r"\b(override|bypass|disable|circumvent)\b[\w\s,'\"-]{0,30}?\b(system|safety|rule|permission|restriction|filter|guardrail|security|access\s+control)s?\b", re.I), 45, "instruction_override"),
+    (re.compile(r"\bforget\s+(everything|all|your|the|previous)\b", re.I), 30, "instruction_override"),
+    # Privilege / permission manipulation ("remove permissions", "adjust my access", "make me admin").
+    (re.compile(r"\b(remove|delete|adjust|change|modify|update|alter|edit|reset|drop|lift|relax|loosen|grant|give|elevate|escalate|expand|increase|raise|lower|set)\b[\w\s,'\"-]{0,20}?\b(permissions?|access|roles?|privileges?|rights?|restrictions?|clearances?|authoriz\w*|rbac|scopes?)\b", re.I), 45, "privilege_escalation"),
+    (re.compile(r"\b(make|set|turn)\s+me\s+(in)?to\s+(an?\s+)?(admin|administrator|owner|root|superuser|super\s*user)\b", re.I), 50, "privilege_escalation"),
+    (re.compile(r"\b(give|grant)\s+me\s+(an?\s+)?(admin|root|full|elevated|higher|all)\b", re.I), 45, "privilege_escalation"),
+    (re.compile(r"\b(i\s*am|i'm)\s+(an?\s+)?(admin|administrator|the\s+owner|root|superuser)\b", re.I), 35, "privilege_escalation"),
     # Role manipulation
     (re.compile(r"\byou\s+are\s+now\b", re.I), 30, "role_manipulation"),
     (re.compile(r"\bact\s+as\s+(an?\s+)?(admin|root|developer|dan|system)", re.I), 35, "role_manipulation"),
@@ -30,6 +36,10 @@ _SIGNALS: list[tuple[re.Pattern, int, str]] = [
     (re.compile(r"\b(api[_\s-]?key|secret|password|credential|token)s?\b", re.I), 30, "exfiltration"),
     (re.compile(r"\bother\s+(tenant|company|organization|customer)('?s)?\b", re.I), 45, "exfiltration"),
     (re.compile(r"\b(dump|leak|exfiltrate)\b", re.I), 40, "exfiltration"),
+    # Over-broad data requests ("give me all information you have", "everything you know").
+    (re.compile(r"\b(give|send|show|provide|share)\s+me\s+(all|everything|every|the\s+full|the\s+entire)\b", re.I), 35, "exfiltration"),
+    (re.compile(r"\b(all|every|any)\s+(the\s+)?(information|data|documents?|files?|records?)\s+(you\s+(have|can|know|hold)|available)\b", re.I), 35, "exfiltration"),
+    (re.compile(r"\beverything\s+you\s+(know|have|can\s+access)\b", re.I), 35, "exfiltration"),
     # Hidden / encoded instructions
     (re.compile(r"[​-‏‪-‮﻿]"), 35, "hidden"),  # zero-width / bidi
     (re.compile(r"\bbase64\b|\bdecode\b|\brot13\b", re.I), 20, "hidden"),

@@ -33,10 +33,8 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   const { className = "", ...rest } = props;
   return <textarea className={`textarea ${className}`} {...rest} />;
 }
-export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  const { className = "", children, ...rest } = props;
-  return <select className={`input ${className}`} {...rest}>{children}</select>;
-}
+export { Select } from "./Select";
+export type { SelectOption } from "./Select";
 export function Field({ label, hint, children }: { label?: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="field">

@@ -5,6 +5,7 @@ import { chatStream } from "@/lib/api";
 import { EMPTY_ASK, useAsk } from "@/app/components/AskStore";
 import { Badge, Button, EmptyState, Input, Panel, RiskBadge } from "@/app/components/ui";
 import { Icon } from "@/app/components/icons";
+import { Markdown } from "@/app/components/Markdown";
 
 export default function AskPage() {
   const { state, setState } = useAsk();
@@ -27,7 +28,7 @@ export default function AskPage() {
         onToken: (t) => setState((s) => ({ ...s, answer: s.answer + t })),
         onBlocked: (d) => setState((s) => ({ ...s, blocked: d, done: true })),
         onError: (d) => setState((s) => ({ ...s, error: d, done: true })),
-        onDone: (e) => setState((s) => ({ ...s, citations: e.citations, risk: e.security_risk, model: e.model_used, done: true })),
+        onDone: (e) => setState((s) => ({ ...s, answer: e.answer ?? s.answer, citations: e.citations, risk: e.security_risk, model: e.model_used, done: true })),
       });
     } catch (err) {
       setState((s) => ({ ...s, error: (err as Error).message, done: true }));
@@ -81,27 +82,25 @@ export default function AskPage() {
             {state.risk && <RiskBadge risk={state.risk} />}
             {state.model && <Badge>model: {state.model}</Badge>}
             {state.done && <Badge>{state.citations.length} {state.citations.length === 1 ? "source" : "sources"}</Badge>}
-            {loading && !state.done && <Badge tone="primary"><span className="spinner" /> streaming</Badge>}
+            {loading && !state.done && <Badge tone="primary"><span className="spinner" /></Badge>}
           </div>
-          <p className="answer">
-            {state.answer}
+          <div style={{ lineHeight: 1.7 }}>
+            <Markdown text={state.answer} />
             {loading && !state.done && <span className="caret" />}
-          </p>
+          </div>
 
           {state.done && state.citations.length > 0 && (
             <>
               <hr className="divider" />
               <div className="eyebrow">Sources</div>
-              {state.citations.map((c, i) => (
-                <motion.div key={i} className="cite"
-                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.04 * i }}>
-                  <div className="row-between">
-                    <div><strong>{c.title}</strong>{c.section && <span className="crumb"> › {c.section}</span>}</div>
-                    <span className="mono faint" style={{ fontSize: 12 }}>{c.score}</span>
-                  </div>
-                  <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>{c.snippet}…</div>
-                </motion.div>
-              ))}
+              <div className="cluster">
+                {state.citations.map((c, i) => (
+                  <motion.span key={i} className="badge"
+                    initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: 0.04 * i }}>
+                    <Icon name="file" size={13} /> {c.title}
+                  </motion.span>
+                ))}
+              </div>
             </>
           )}
         </Panel>

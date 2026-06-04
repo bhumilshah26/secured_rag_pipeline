@@ -3,7 +3,7 @@ export type Role = "ADMIN" | "HR" | "ANALYST" | "MANAGER" | "VIEWER";
 export const ALL_ROLES: Role[] = ["ADMIN", "HR", "ANALYST", "MANAGER", "VIEWER"];
 
 export type Capability =
-  | "query" | "ingest" | "set_permissions" | "connect_source" | "read_audit" | "manage_tenant";
+  | "query" | "ingest" | "set_permissions" | "connect_source" | "read_audit" | "manage_tenant" | "pii_1" | "pii_2";
 
 const CAPS: Record<Capability, Role[]> = {
   query: ["ADMIN", "HR", "ANALYST", "MANAGER", "VIEWER"],
@@ -12,6 +12,8 @@ const CAPS: Record<Capability, Role[]> = {
   connect_source: ["ADMIN", "HR", "MANAGER"],
   read_audit: ["ADMIN"],
   manage_tenant: ["ADMIN"],
+  pii_1: ["ADMIN", "HR"],
+  pii_2: [],
 };
 
 export function can(role: string | undefined, cap: Capability): boolean {
@@ -27,4 +29,6 @@ export const CAPABILITY_MATRIX: { cap: string; roles: Role[] }[] = [
   { cap: "Connect sources", roles: CAPS.connect_source },
   { cap: "Read audit log", roles: CAPS.read_audit },
   { cap: "Manage users", roles: CAPS.manage_tenant },
+  { cap: "PII visibility(Emails, Phones, etc.)", roles: CAPS.pii_1 },
+  { cap: "PII visibility(Government IDs and Financial PII)", roles: CAPS.pii_2}
 ];

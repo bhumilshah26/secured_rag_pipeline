@@ -44,7 +44,7 @@ export default function OverviewPage() {
         </form>
       </Panel>
 
-      <div className="grid" style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))" }}>
+      <div className="grid ov-grid" style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))" }}>
         {/* Knowledge */}
         <Panel className="stack">
           <div className="row-between">
