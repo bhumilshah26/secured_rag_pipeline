@@ -6,19 +6,16 @@
   4. Generate answer via the configured LLM.
   5. Audit (IDs + hashes only) and return answer + citations.
 """
-import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import logger as audit
 from app.config import settings
 from app.embeddings import get_embedding_provider
 from app.llm import get_llm_provider
-from app.models import Document
 from app.prompts.templates import SYSTEM_INSTRUCTION, build_context_block
 from app.security.auth import CurrentUser
 from app.security.pii import mask_for_role
@@ -35,43 +32,17 @@ class RetrievalAnswer:
     model_used: str
 
 
-def _resolve_named_documents(
-    db: Session, *, tenant_id: str, query: str
-) -> tuple[list[str], str]:
-    """Keyword stage: if the query names a document (by title), return those document ids
-    and the query with the title text removed (so the semantic stage focuses on the rest).
-    Tenant-scoped, so only this tenant's titles are ever matched."""
-    rows = db.execute(
-        select(Document.id, Document.title).where(Document.tenant_id == tenant_id)
-    ).all()
-    q_lower = query.lower()
-    matched: list[str] = []
-    cleaned = query
-    for doc_id, title in rows:
-        base = re.sub(r"\.\w+$", "", (title or "")).strip().lower()  # drop extension
-        if len(base) >= 3 and base in q_lower:
-            matched.append(doc_id)
-            cleaned = re.sub(re.escape(base), " ", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    return matched, (cleaned or query)
-
-
-def _retrieve(db: Session, *, user: CurrentUser, query: str, top_k: int | None) -> tuple[str, list[dict]]:
-    """Hybrid retrieval (keyword-resolve named docs, then semantic search) -> (context, citations).
-    No LLM, no audit; shared by the blocking and streaming paths."""
+def _retrieve(*, user: CurrentUser, query: str, top_k: int | None) -> tuple[str, list[dict]]:
+    """Hybrid retrieval: dense (semantic) + BM25 (lexical) fused by Qdrant (RRF), tenant/role
+    filtered -> (context, citations). No LLM, no audit; shared by blocking & streaming paths."""
     top_k = top_k or settings.retrieval_top_k
-    named_doc_ids, semantic_query = _resolve_named_documents(
-        db, tenant_id=user.tenant_id, query=query
-    )
-    query_vector = get_embedding_provider().embed_one(semantic_query)
-    threshold = None if named_doc_ids else settings.retrieval_score_threshold
+    query_vector = get_embedding_provider().embed_one(query)
     hits = qdrant_store.secure_search(
         tenant_id=user.tenant_id,
         allowed_roles=readable_roles_for(user),
         query_vector=query_vector,
+        query_text=query,
         limit=top_k,
-        score_threshold=threshold,
-        document_ids=named_doc_ids or None,
     )
     context = build_context_block([h["text"] for h in hits])
 
@@ -123,7 +94,7 @@ def answer_query(
             detail="Query blocked by security policy (possible prompt injection).",
         )
 
-    context, citations = _retrieve(db, user=user, query=query, top_k=top_k)
+    context, citations = _retrieve(user=user, query=query, top_k=top_k)
     llm = get_llm_provider()
     answer = llm.generate(system=SYSTEM_INSTRUCTION, context=context, query=query)
     if settings.pii_mask_in_response:
@@ -148,7 +119,7 @@ def stream_answer(
         yield {"type": "blocked", "detail": "Query blocked by security policy (possible prompt injection)."}
         return
 
-    context, citations = _retrieve(db, user=user, query=query, top_k=top_k)
+    context, citations = _retrieve(user=user, query=query, top_k=top_k)
     llm = get_llm_provider()
     yield {"type": "meta", "model_used": llm.model_name, "security_risk": guard.decision}
     parts: list[str] = []
