@@ -12,18 +12,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN useradd -m -u 1000 user
 ENV HOME=/home/user HF_HOME=/home/user/.cache/huggingface
 
-# uv for dependency management
+# uv for dependency management (build-time only)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 WORKDIR /app
 
-# Install dependencies from the lockfile (reproducible, no project install).
-COPY --chown=user pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project
+# Install dependencies into /app/.venv as root. --no-cache avoids writing a uv cache
+# under /home/user (which would be root-owned and break the non-root runtime user).
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project --no-cache
 
-COPY --chown=user app ./app
+COPY app ./app
+
+# The venv was created by root; hand /app to the runtime user so it's readable/executable.
+RUN chown -R user:user /app
 
 USER user
+# Run uvicorn straight from the venv — no `uv` at runtime, so no uv cache is touched.
+ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 7860
-# Spaces expect the app on port 7860.
-CMD ["uv", "run", "--no-sync", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]

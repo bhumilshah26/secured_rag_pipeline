@@ -20,6 +20,17 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     jwt_algorithm: str = "HS256"
 
+    # CORS: comma-separated list of allowed browser origins (e.g. your Vercel URL).
+    # Empty -> all origins in development, none in production.
+    cors_allow_origins: str = ""
+
+    @property
+    def cors_origins(self) -> list[str]:
+        raw = self.cors_allow_origins.strip()
+        if raw:
+            return [o.strip() for o in raw.split(",") if o.strip()]
+        return ["*"] if self.app_env == "development" else []
+
     # Postgres
     postgres_user: str = "rag"
     postgres_password: str = "pass%4012345"

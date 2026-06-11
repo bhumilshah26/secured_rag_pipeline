@@ -11,10 +11,13 @@ from app.vector.qdrant_store import ensure_collection
 
 app = FastAPI(title="Secured Enterprise RAG", version="0.1.0")
 
+_cors_origins = settings.cors_origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.app_env == "development" else [],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    # "*" cannot be combined with credentials per the CORS spec; we use Bearer tokens
+    # (no cookies), so only enable credentials when explicit origins are configured.
+    allow_credentials=_cors_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -37,7 +40,7 @@ def on_startup() -> None:
     ensure_collection()
 
 
-@app.get("/health", tags=["meta"])
+@app.get("/", tags=["meta"])
 def health() -> dict:
     return {
         "status": "ok",
