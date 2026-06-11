@@ -133,7 +133,6 @@ def stream_answer(
     answer = "".join(parts)
     if settings.pii_mask_in_response:
         answer = mask_for_role(answer, user.role.value)
-    print(f"[LLM] response streamed by model: {llm.model_name} (provider={settings.llm_provider})")
     _audit_query(db, user=user, query=query, citations=citations, guard=guard, model=llm.model_name)
     # `answer` is the authoritative, PII-masked text; the client replaces the streamed text with it.
     yield {"type": "done", "answer": answer, "citations": citations,

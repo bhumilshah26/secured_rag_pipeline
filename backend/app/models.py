@@ -44,7 +44,7 @@ class SourceKind(str, enum.Enum):
     UPLOAD = "upload"
 
 
-class Tenant(Base):
+class Tenant(Base): # organization
     __tablename__ = "tenants"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     name: Mapped[str] = mapped_column(String, nullable=False)

@@ -28,7 +28,8 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
 
     # Qdrant
-    qdrant_host: str = "localhost"
+    qdrant_url: str = ""
+    qdrant_api_key: str = ""
     qdrant_port: int = 6333
     qdrant_collection: str = "rag_chunks"
 

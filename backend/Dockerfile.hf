@@ -1,0 +1,29 @@
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+
+# build-essential for native wheels; tesseract-ocr + poppler-utils power OCR/PDF extraction
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential tesseract-ocr poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Hugging Face Spaces runs the container as uid 1000. Create that user and give it a
+# writable HOME so the embedding model can be cached at runtime (HF_HOME).
+RUN useradd -m -u 1000 user
+ENV HOME=/home/user HF_HOME=/home/user/.cache/huggingface
+
+# uv for dependency management
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+WORKDIR /app
+
+# Install dependencies from the lockfile (reproducible, no project install).
+COPY --chown=user pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project
+
+COPY --chown=user app ./app
+
+USER user
+EXPOSE 7860
+# Spaces expect the app on port 7860.
+CMD ["uv", "run", "--no-sync", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]

@@ -26,7 +26,7 @@ _SPARSE = "bm25"   # named sparse vector (BM25 lexical)
 
 @lru_cache
 def get_client() -> QdrantClient:
-    return QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
+    return QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key, port=settings.qdrant_port, timeout=60)
 
 @lru_cache
 def _bm25():

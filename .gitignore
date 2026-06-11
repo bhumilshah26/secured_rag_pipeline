@@ -23,3 +23,5 @@ qdrant_data/
 .DS_Store
 .idea/
 .vscode/
+
+PROJECT_GUIDE.md
