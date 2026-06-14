@@ -111,16 +111,20 @@ export type ChatResponse = {
   citations: Citation[];
   security_risk: string;
   model_used: string;
+  conversation_id: string;
 };
 
-export function chat(query: string) {
+export type ChatTurn = { role: "user" | "assistant"; content: string };
+
+export function chat(query: string, conversationId?: string | null) {
   return request<ChatResponse>("/chat", {
     method: "POST",
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, conversation_id: conversationId ?? null }),
   });
 }
 
 export type StreamHandlers = {
+  onConversation?: (e: { conversation_id: string; title: string }) => void;
   onMeta?: (e: { model_used: string; security_risk: string }) => void;
   onToken?: (text: string) => void;
   onDone?: (e: { answer?: string; citations: Citation[]; security_risk: string; model_used: string }) => void;
@@ -129,7 +133,13 @@ export type StreamHandlers = {
 };
 
 // Consume the SSE stream from POST /chat/stream (EventSource can't POST, so we read the body).
-export async function chatStream(query: string, h: StreamHandlers): Promise<void> {
+// Pass conversationId to continue an existing thread; omit it to start a new one (the server
+// returns the new id via the `conversation` event).
+export async function chatStream(
+  query: string,
+  conversationId: string | null,
+  h: StreamHandlers
+): Promise<void> {
   const token = getToken();
   const res = await fetch(`${BASE}/chat/stream`, {
     method: "POST",
@@ -137,7 +147,7 @@ export async function chatStream(query: string, h: StreamHandlers): Promise<void
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, conversation_id: conversationId ?? null }),
   });
   if (!res.ok || !res.body) {
     const body = await res.json().catch(() => ({}));
@@ -157,13 +167,55 @@ export async function chatStream(query: string, h: StreamHandlers): Promise<void
       if (!line) continue;
       let ev: any;
       try { ev = JSON.parse(line.slice(6)); } catch { continue; }
-      if (ev.type === "meta") h.onMeta?.(ev);
+      if (ev.type === "conversation") h.onConversation?.(ev);
+      else if (ev.type === "meta") h.onMeta?.(ev);
       else if (ev.type === "token") h.onToken?.(ev.text);
       else if (ev.type === "done") h.onDone?.(ev);
       else if (ev.type === "blocked") h.onBlocked?.(ev.detail);
       else if (ev.type === "error") h.onError?.(ev.detail);
     }
   }
+}
+
+// ---- Conversations (saved chat history) ----
+export type Conversation = {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ConversationMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  citations: Citation[];
+  security_risk: string | null;
+  model_used: string | null;
+  created_at: string;
+};
+
+export type ConversationDetail = Conversation & { messages: ConversationMessage[] };
+
+export function listConversations() {
+  return request<Conversation[]>("/conversations", { method: "GET" });
+}
+
+export function getConversation(id: string) {
+  return request<ConversationDetail>(`/conversations/${id}`, { method: "GET" });
+}
+
+export function renameConversation(id: string, title: string) {
+  return request<Conversation>(`/conversations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
+}
+
+export function deleteConversation(id: string) {
+  return request<{ deleted: boolean; conversation_id: string }>(`/conversations/${id}`, {
+    method: "DELETE",
+  });
 }
 
 export type UserRow = {

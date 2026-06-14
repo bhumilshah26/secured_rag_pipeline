@@ -25,7 +25,18 @@ class AnthropicLLMProvider(LLMProvider):
     def model_name(self) -> str:
         return self._model
 
-    def _payload(self, system: str, context: str, query: str, stream: bool = False) -> dict:
+    def _payload(
+        self, system: str, context: str, query: str, stream: bool = False,
+        history: list[dict] | None = None,
+    ) -> dict:
+        # Prior turns precede the final user turn (which carries the fresh context + question),
+        # giving the model conversational memory. History is pre-normalized to strict
+        # user/assistant alternation by the pipeline, as the Messages API requires.
+        messages: list[dict] = []
+        for turn in history or []:
+            role = "assistant" if turn.get("role") == "assistant" else "user"
+            messages.append({"role": role, "content": turn.get("content", "")})
+        messages.append({"role": "user", "content": f"{context}\n\nQuestion: {query}"})
         return {
             "model": self._model,
             "max_tokens": settings.llm_max_tokens,
@@ -33,7 +44,7 @@ class AnthropicLLMProvider(LLMProvider):
             "stream": stream,
             # Fixed instruction -> cacheable system block.
             "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            "messages": [{"role": "user", "content": f"{context}\n\nQuestion: {query}"}],
+            "messages": messages,
         }
 
     @property
@@ -44,16 +55,23 @@ class AnthropicLLMProvider(LLMProvider):
             "content-type": "application/json",
         }
 
-    def generate(self, *, system: str, context: str, query: str) -> str:
+    def generate(
+        self, *, system: str, context: str, query: str,
+        history: list[dict] | None = None,
+    ) -> str:
         resp = httpx.post(_API_URL, headers=self._headers,
-                          json=self._payload(system, context, query), timeout=120)
+                          json=self._payload(system, context, query, history=history), timeout=120)
         resp.raise_for_status()
         blocks = resp.json().get("content", [])
         return "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
 
-    def stream(self, *, system: str, context: str, query: str) -> Iterator[str]:
+    def stream(
+        self, *, system: str, context: str, query: str,
+        history: list[dict] | None = None,
+    ) -> Iterator[str]:
         with httpx.stream("POST", _API_URL, headers=self._headers,
-                          json=self._payload(system, context, query, stream=True), timeout=120) as resp:
+                          json=self._payload(system, context, query, stream=True, history=history),
+                          timeout=120) as resp:
             resp.raise_for_status()
             for line in resp.iter_lines():
                 if not line.startswith("data: "):

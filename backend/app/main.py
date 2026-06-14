@@ -4,7 +4,7 @@ import uuid
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import admin, auth, chat, connectors, documents
+from app.api.routes import admin, auth, chat, connectors, conversations, documents
 from app.config import settings
 from app.db import init_db
 from app.vector.qdrant_store import ensure_collection
@@ -53,4 +53,5 @@ app.include_router(auth.router)
 app.include_router(documents.router)
 app.include_router(connectors.router)
 app.include_router(chat.router)
+app.include_router(conversations.router)
 app.include_router(admin.router)

@@ -1,5 +1,6 @@
 """Pydantic request/response DTOs."""
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -110,8 +111,19 @@ class Citation(BaseModel):
     snippet: str
 
 
+class ChatTurn(BaseModel):
+    """One prior message in the conversation, sent by the client for context memory."""
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class ChatRequest(BaseModel):
     query: str
+    # Conversation to append to. When omitted, the server starts a new conversation and
+    # returns its id. When given, the server loads prior turns from the DB (source of truth).
+    conversation_id: str | None = None
+    # Legacy/fallback: prior turns supplied by the client. Ignored when conversation_id is set.
+    history: list[ChatTurn] = Field(default_factory=list)
 
 
 class ChatResponse(BaseModel):
@@ -119,3 +131,32 @@ class ChatResponse(BaseModel):
     citations: list[Citation]
     security_risk: str
     model_used: str
+    conversation_id: str
+
+
+# ---- Conversations (saved chat history) ----
+class ConversationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class MessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    role: Literal["user", "assistant"]
+    content: str
+    citations: list[Citation] = []
+    security_risk: str | None = None
+    model_used: str | None = None
+    created_at: datetime
+
+
+class ConversationDetail(ConversationOut):
+    messages: list[MessageOut] = []
+
+
+class RenameConversationRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=200)

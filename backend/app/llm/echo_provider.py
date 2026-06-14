@@ -42,7 +42,11 @@ class EchoLLMProvider(LLMProvider):
     def model_name(self) -> str:
         return "echo-local"
 
-    def generate(self, *, system: str, context: str, query: str) -> str:
+    def generate(
+        self, *, system: str, context: str, query: str,
+        history: list[dict] | None = None,
+    ) -> str:
+        # The echo provider is extractive (no real reasoning), so it ignores history.
         sentences = _sentences(context)
         if not sentences:
             return (
