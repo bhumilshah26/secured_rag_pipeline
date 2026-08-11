@@ -54,6 +54,7 @@ export function createUser(body: { email: string; password: string; role: string
 }
 
 export type AuthPendingResponse = {
+  access_token: string,
   user_id: string;
   email: string;
   pending: true;
