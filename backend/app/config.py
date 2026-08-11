@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     jwt_algorithm: str = "HS256"
 
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True
+    smtp_from: str = "no-reply@localhost"
+
     # CORS: comma-separated list of allowed browser origins (e.g. your Vercel URL).
     # Empty -> all origins in development, none in production.
     cors_allow_origins: str = ""

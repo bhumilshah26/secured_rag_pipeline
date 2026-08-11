@@ -8,12 +8,14 @@ from app.audit import logger as audit
 from app.db import get_db
 from app.models import Role, Tenant, User
 from app.schemas import (
+    AuthPendingResponse,
     CreateUserRequest,
     MeResponse,
     RegisterRequest,
     TokenResponse,
     UpdateProfileRequest,
     UserOut,
+    VerifyOtpRequest,
 )
 from app.security.auth import (
     CurrentUser,
@@ -22,13 +24,14 @@ from app.security.auth import (
     hash_password,
     verify_password,
 )
+from app.security.otp import create_or_replace_otp, send_otp_email, validate_otp
 from app.security.rbac import require_capability
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=TokenResponse, status_code=201)
-def register(req: RegisterRequest, db: Session = Depends(get_db)) -> TokenResponse:
+@router.post("/register", response_model=AuthPendingResponse, status_code=201)
+def register(req: RegisterRequest, db: Session = Depends(get_db)) -> AuthPendingResponse:
     if db.scalar(select(Tenant).where(Tenant.slug == req.tenant_slug)):
         raise HTTPException(status_code=409, detail="Tenant slug already exists")
     tenant = Tenant(name=req.tenant_name, slug=req.tenant_slug)
@@ -42,15 +45,16 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)) -> TokenRespon
     )
     db.add(admin)
     db.commit()
+    otp = create_or_replace_otp(db, admin, purpose="register")
+    send_otp_email(admin, otp.code)
     audit.record_event(
-        db, event_type="tenant.register", tenant_id=tenant.id, user_id=admin.id,
+        db, event_type="tenant.register.otp.sent", tenant_id=tenant.id, user_id=admin.id,
         response_status="201",
     )
-    token = create_access_token(user_id=admin.id, tenant_id=tenant.id, role=Role.ADMIN)
-    return TokenResponse(access_token=token, role=Role.ADMIN, tenant_id=tenant.id)
+    return AuthPendingResponse(user_id=admin.id, email=admin.email, pending=True)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=AuthPendingResponse)
 def login(
     form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
 ) -> TokenResponse:
@@ -60,8 +64,28 @@ def login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
         )
+    otp = create_or_replace_otp(db, user, purpose="login")
+    send_otp_email(user, otp.code)
     audit.record_event(
-        db, event_type="auth.login", tenant_id=user.tenant_id, user_id=user.id,
+        db, event_type="auth.login.otp.sent", tenant_id=user.tenant_id, user_id=user.id,
+        response_status="200",
+    )
+    return AuthPendingResponse(user_id=user.id, email=user.email, pending=True)
+
+
+@router.post("/verify-otp", response_model=TokenResponse)
+def verify_otp(req: VerifyOtpRequest, db: Session = Depends(get_db)) -> TokenResponse:
+    user = db.scalar(select(User).where(User.email == req.email))
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+        )
+    if not validate_otp(db, user, req.code, purpose=req.purpose):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired OTP"
+        )
+    audit.record_event(
+        db, event_type="auth.otp.verify", tenant_id=user.tenant_id, user_id=user.id,
         response_status="200",
     )
     token = create_access_token(user_id=user.id, tenant_id=user.tenant_id, role=user.role)

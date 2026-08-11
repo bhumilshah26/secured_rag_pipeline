@@ -53,13 +53,27 @@ export function createUser(body: { email: string; password: string; role: string
   });
 }
 
+export type AuthPendingResponse = {
+  user_id: string;
+  email: string;
+  pending: true;
+};
+
+export type AuthSuccessResponse = {
+  access_token: string;
+  role: string;
+  tenant_id: string;
+};
+
+export type AuthResponse = AuthPendingResponse | AuthSuccessResponse;
+
 export function register(body: {
   tenant_name: string;
   tenant_slug: string;
   admin_email: string;
   admin_password: string;
 }) {
-  return request<{ access_token: string; role: string; tenant_id: string }>("/auth/register", {
+  return request<AuthResponse>("/auth/register", {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -74,7 +88,14 @@ export async function login(email: string, password: string) {
     body,
   });
   if (!res.ok) throw new Error("Invalid credentials");
-  return res.json() as Promise<{ access_token: string; role: string; tenant_id: string }>;
+  return res.json() as Promise<AuthResponse>;
+}
+
+export function verifyOtp(body: { email: string; code: string; purpose?: string }) {
+  return request<AuthSuccessResponse>("/auth/verify-otp", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export type Me = {
