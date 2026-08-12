@@ -33,6 +33,7 @@ class Role(str, enum.Enum):
     HR = "HR"
     ANALYST = "ANALYST"
     MANAGER = "MANAGER"
+    DEVELOPER = "DEVELOPER"
     VIEWER = "VIEWER"
 
 
@@ -75,6 +76,23 @@ class OTPChallenge(Base):
     purpose: Mapped[str] = mapped_column(String, nullable=False, default="login")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     consumed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class PendingRegistration(Base):
+    """A signup held until its email is proven. The tenant and its first ADMIN are created
+    only on verification, so an unverified attempt never occupies a slug and never leaves
+    an orphaned tenant behind. Rows are deleted on success and swept once expired."""
+
+    __tablename__ = "pending_registrations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    tenant_name: Mapped[str] = mapped_column(String, nullable=False)
+    tenant_slug: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
+    code: Mapped[str] = mapped_column(String(6), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 

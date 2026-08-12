@@ -27,7 +27,8 @@ class VerifyOtpRequest(BaseModel):
 
 
 class AuthPendingResponse(BaseModel):
-    user_id: str
+    # None while a registration is still held: no user exists until the code is verified.
+    user_id: str | None = None
     email: EmailStr
     pending: bool = True
 

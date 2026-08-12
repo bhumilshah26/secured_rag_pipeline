@@ -7,10 +7,12 @@ from app.security.auth import CurrentUser, get_current_user
 # Capability -> roles allowed. ADMIN is implicitly allowed everywhere via require_role.
 CAPABILITIES: dict[str, set[Role]] = {
     "manage_tenant": {Role.ADMIN},
+    # DEVELOPER contributes technical documentation and scopes who reads it, but
+    # wiring up org-wide data sources stays with ADMIN/HR/MANAGER.
     "connect_source": {Role.ADMIN, Role.HR, Role.MANAGER},
-    "ingest": {Role.ADMIN, Role.HR, Role.MANAGER},
-    "set_permissions": {Role.ADMIN, Role.HR, Role.MANAGER},
-    "query": {Role.ADMIN, Role.HR, Role.ANALYST, Role.MANAGER, Role.VIEWER},
+    "ingest": {Role.ADMIN, Role.HR, Role.MANAGER, Role.DEVELOPER},
+    "set_permissions": {Role.ADMIN, Role.HR, Role.MANAGER, Role.DEVELOPER},
+    "query": {Role.ADMIN, Role.HR, Role.ANALYST, Role.MANAGER, Role.DEVELOPER, Role.VIEWER},
     "read_audit": {Role.ADMIN},
 }
 
