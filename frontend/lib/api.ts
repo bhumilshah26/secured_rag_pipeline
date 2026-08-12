@@ -55,7 +55,8 @@ export function createUser(body: { email: string; password: string; role: string
 
 export type AuthPendingResponse = {
   access_token: string,
-  user_id: string;
+  // null while a registration is held: the user does not exist until the code is verified.
+  user_id: string | null;
   email: string;
   pending: true;
 };

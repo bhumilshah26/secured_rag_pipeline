@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Icon } from "./icons";
 
 type Btn = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost" | "danger";
@@ -29,6 +30,32 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   const { className = "", ...rest } = props;
   return <input className={`input ${className}`} {...rest} />;
 }
+/** Password field with a show/hide toggle. `type` is owned by the component. */
+export function PasswordInput({
+  className = "", ...rest
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, "type">) {
+  const [shown, setShown] = useState(false);
+  // A locked field never stays revealed, so a submitted form leaves nothing on screen.
+  const visible = shown && !rest.disabled;
+  const label = visible ? "Hide password" : "Show password";
+  return (
+    <span className="pw-wrap">
+      <input {...rest} type={visible ? "text" : "password"} className={`input pw-input ${className}`} />
+      <button
+        type="button"
+        className="pw-toggle"
+        onClick={() => setShown((s) => !s)}
+        disabled={rest.disabled}
+        aria-label={label}
+        aria-pressed={visible}
+        title={label}
+      >
+        <Icon name={visible ? "eye-off" : "eye"} size={16} />
+      </button>
+    </span>
+  );
+}
+
 export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const { className = "", ...rest } = props;
   return <textarea className={`textarea ${className}`} {...rest} />;
@@ -57,9 +84,11 @@ export function RiskBadge({ risk }: { risk: string }) {
   return <Badge tone={tone as any}>{r === "ALLOW" ? "Allowed" : r === "FLAG" ? "Flagged" : r === "BLOCK" ? "Blocked" : risk}</Badge>;
 }
 
-export function Chip({ active, onClick, children }: { active?: boolean; onClick?: () => void; children: React.ReactNode }) {
+export function Chip({
+  active, onClick, disabled, children,
+}: { active?: boolean; onClick?: () => void; disabled?: boolean; children: React.ReactNode }) {
   return (
-    <button type="button" className="chip" aria-pressed={!!active} onClick={onClick}>
+    <button type="button" className="chip" aria-pressed={!!active} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   );

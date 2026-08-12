@@ -1,14 +1,14 @@
 // Mirrors backend app/security/rbac.py capabilities (frontend gating only; server still enforces).
-export type Role = "ADMIN" | "HR" | "ANALYST" | "MANAGER" | "VIEWER";
-export const ALL_ROLES: Role[] = ["ADMIN", "HR", "ANALYST", "MANAGER", "VIEWER"];
+export type Role = "ADMIN" | "HR" | "ANALYST" | "MANAGER" | "DEVELOPER" | "VIEWER";
+export const ALL_ROLES: Role[] = ["ADMIN", "HR", "ANALYST", "MANAGER", "DEVELOPER", "VIEWER"];
 
 export type Capability =
   | "query" | "ingest" | "set_permissions" | "connect_source" | "read_audit" | "manage_tenant" | "pii_1" | "pii_2";
 
 const CAPS: Record<Capability, Role[]> = {
-  query: ["ADMIN", "HR", "ANALYST", "MANAGER", "VIEWER"],
-  ingest: ["ADMIN", "HR", "MANAGER"],
-  set_permissions: ["ADMIN", "HR", "MANAGER"],
+  query: ["ADMIN", "HR", "ANALYST", "MANAGER", "DEVELOPER", "VIEWER"],
+  ingest: ["ADMIN", "HR", "MANAGER", "DEVELOPER"],
+  set_permissions: ["ADMIN", "HR", "MANAGER", "DEVELOPER"],
   connect_source: ["ADMIN", "HR", "MANAGER"],
   read_audit: ["ADMIN"],
   manage_tenant: ["ADMIN"],

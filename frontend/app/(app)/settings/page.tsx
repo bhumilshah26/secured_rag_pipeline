@@ -4,7 +4,7 @@ import { getHealth, updateProfile } from "@/lib/api";
 import { useMe } from "@/app/components/AppShell";
 import { useTheme } from "@/app/components/theme";
 import { useToast } from "@/app/components/Toast";
-import { Badge, Button, Field, Input, Panel } from "@/app/components/ui";
+import { Badge, Button, Field, Input, PasswordInput, Panel } from "@/app/components/ui";
 
 type Tab = "profile" | "appearance" | "security";
 
@@ -51,9 +51,9 @@ export default function SettingsPage() {
 
       {tab === "profile" && (
         <Panel className="stack" style={{ maxWidth: 440 }}>
-          <Field label="Email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+          <Field label="Email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={busy} /></Field>
           <Field label="New password" hint="Leave blank to keep your current password.">
-            <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordInput autoComplete="new-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} disabled={busy} />
           </Field>
           <div className="row"><Button variant="primary" loading={busy} onClick={saveProfile}>Save changes</Button></div>
         </Panel>

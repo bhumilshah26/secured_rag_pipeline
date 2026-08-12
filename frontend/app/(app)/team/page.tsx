@@ -4,15 +4,16 @@ import { createUser, deleteUser, listUsers, type UserRow } from "@/lib/api";
 import { ALL_ROLES, CAPABILITY_MATRIX, can, type Role } from "@/lib/roles";
 import { useMe } from "@/app/components/AppShell";
 import { useToast } from "@/app/components/Toast";
-import { Badge, Button, Dialog, EmptyState, Field, Input, Panel, Select, Skeleton } from "@/app/components/ui";
+import { Badge, Button, Dialog, EmptyState, Field, Input, PasswordInput, Panel, Select, Skeleton } from "@/app/components/ui";
 import { Icon } from "@/app/components/icons";
 
 // Authority order, highest first.
-const HIERARCHY: Role[] = ["ADMIN", "MANAGER", "HR", "ANALYST", "VIEWER"];
+const HIERARCHY: Role[] = ["ADMIN", "MANAGER", "HR", "DEVELOPER", "ANALYST", "VIEWER"];
 const ROLE_BLURB: Record<Role, string> = {
   ADMIN: "Full control: users, sources, audit, knowledge",
   MANAGER: "Connect sources, ingest, set permissions, query",
   HR: "Connect sources, ingest, set permissions, query",
+  DEVELOPER: "Ingest technical docs, set permissions, query",
   ANALYST: "Query the knowledge they're authorized to see",
   VIEWER: "Query the knowledge they're authorized to see",
 };
@@ -20,6 +21,7 @@ const ROLE_COLOR: Record<Role, string> = {
   ADMIN: "var(--accent)",
   MANAGER: "var(--primary)",
   HR: "var(--info-ink)",
+  DEVELOPER: "var(--warning)",
   ANALYST: "var(--success)",
   VIEWER: "var(--ink-muted)",
 };
@@ -180,9 +182,9 @@ export default function TeamPage() {
         footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
           <Button variant="primary" loading={busy} onClick={onCreate as any}>Create member</Button></>}>
         <form onSubmit={onCreate} className="stack" style={{ gap: 12 }}>
-          <Field label="Email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="person@company.com" required /></Field>
-          <Field label="Temporary password" hint="At least 8 characters."><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></Field>
-          <Field label="Role"><Select value={role} onChange={setRole} ariaLabel="Role"
+          <Field label="Email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="person@company.com" disabled={busy} required /></Field>
+          <Field label="Temporary password" hint="At least 8 characters."><PasswordInput autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={busy} required /></Field>
+          <Field label="Role"><Select value={role} onChange={setRole} ariaLabel="Role" disabled={busy}
             options={ALL_ROLES.map((r) => ({ value: r, label: r }))} /></Field>
         </form>
       </Dialog>

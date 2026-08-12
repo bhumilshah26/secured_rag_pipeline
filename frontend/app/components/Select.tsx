@@ -8,7 +8,7 @@ export type SelectOption = { value: string; label: string; icon?: React.ReactNod
 type Coords = { left: number; width: number; top?: number; bottom?: number };
 
 export function Select({
-  value, onChange, options, placeholder = "Select…", className = "", style, ariaLabel,
+  value, onChange, options, placeholder = "Select…", className = "", style, ariaLabel, disabled,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -17,6 +17,7 @@ export function Select({
   className?: string;
   style?: React.CSSProperties;
   ariaLabel?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -94,6 +95,7 @@ export function Select({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
+        disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         onKeyDown={onKeyDown}
       >

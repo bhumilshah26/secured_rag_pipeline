@@ -11,11 +11,15 @@ import { useToast } from "@/app/components/Toast";
 import { Badge, Button, Chip, Dialog, EmptyState, Field, Input, Panel, Select, Skeleton, Textarea } from "@/app/components/ui";
 import { Icon } from "@/app/components/icons";
 
-function RoleChips({ value, onChange }: { value: string[]; onChange: (r: string[]) => void }) {
+function RoleChips({
+  value, onChange, disabled,
+}: { value: string[]; onChange: (r: string[]) => void; disabled?: boolean }) {
   const toggle = (r: string) => onChange(value.includes(r) ? value.filter((x) => x !== r) : [...value, r]);
   return (
     <div className="cluster">
-      {ALL_ROLES.map((r) => <Chip key={r} active={value.includes(r)} onClick={() => toggle(r)}>{r}</Chip>)}
+      {ALL_ROLES.map((r) => (
+        <Chip key={r} active={value.includes(r)} onClick={() => toggle(r)} disabled={disabled}>{r}</Chip>
+      ))}
     </div>
   );
 }
@@ -171,9 +175,9 @@ export default function KnowledgePage() {
       <Dialog open={pasteOpen} onClose={() => setPasteOpen(false)} title="Add a text document"
         footer={<><Button variant="ghost" onClick={() => setPasteOpen(false)}>Cancel</Button>
           <Button variant="primary" loading={busy} onClick={onPaste}>Index document</Button></>}>
-        <Field label="Title"><Input value={pTitle} onChange={(e) => setPTitle(e.target.value)} placeholder="Leave Policy" /></Field>
-        <Field label="Content"><Textarea rows={6} value={pBody} onChange={(e) => setPBody(e.target.value)} placeholder="Paste document text…" /></Field>
-        <Field label="Roles allowed to retrieve"><RoleChips value={pRoles} onChange={setPRoles} /></Field>
+        <Field label="Title"><Input value={pTitle} onChange={(e) => setPTitle(e.target.value)} placeholder="Leave Policy" disabled={busy} /></Field>
+        <Field label="Content"><Textarea rows={6} value={pBody} onChange={(e) => setPBody(e.target.value)} placeholder="Paste document text…" disabled={busy} /></Field>
+        <Field label="Roles allowed to retrieve"><RoleChips value={pRoles} onChange={setPRoles} disabled={busy} /></Field>
       </Dialog>
 
       {/* Permissions */}
@@ -181,7 +185,7 @@ export default function KnowledgePage() {
         footer={<><Button variant="ghost" onClick={() => setPermDoc(null)}>Cancel</Button>
           <Button variant="primary" loading={busy} onClick={onSavePerms}>Save permissions</Button></>}>
         <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>Choose which roles can retrieve this document. ADMIN always has access.</p>
-        <RoleChips value={permRoles} onChange={setPermRoles} />
+        <RoleChips value={permRoles} onChange={setPermRoles} disabled={busy} />
       </Dialog>
 
       {/* Delete */}

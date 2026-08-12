@@ -165,9 +165,33 @@ code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
 .input:focus, .textarea:focus, select.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); outline: none; }
 .textarea { resize: vertical; }
 .input.mono, .textarea.mono { font-family: var(--font-mono); font-size: 12.5px; }
+/* Once a form is submitted its fields lock, so the values in flight cannot drift. */
+.input:disabled, .textarea:disabled, select.input:disabled, .select-trigger:disabled {
+  background: var(--surface-2); color: var(--ink-muted); cursor: not-allowed; opacity: 0.75;
+}
+.input:disabled::placeholder, .textarea:disabled::placeholder { color: var(--ink-faint); }
+.select-trigger:disabled:hover { border-color: var(--border-strong); }
+.chip:disabled { cursor: not-allowed; opacity: 0.6; }
+.chip:disabled:hover { border-color: var(--border-strong); }
 .field { display: grid; gap: 6px; }
 .label { font-size: 13px; font-weight: 550; color: var(--ink-muted); }
 .hint { font-size: 12px; color: var(--ink-faint); }
+
+/* ---- password field (show/hide) ---- */
+.pw-wrap { position: relative; display: block; }
+.pw-input { padding-right: 42px; }
+/* Edge/IE render their own reveal control; ours is the only one. */
+.pw-input::-ms-reveal, .pw-input::-ms-clear { display: none; }
+.pw-toggle {
+  position: absolute; top: 50%; right: 5px; transform: translateY(-50%);
+  display: grid; place-items: center; width: 30px; height: 30px; padding: 0;
+  border: 0; background: transparent; color: var(--ink-faint); border-radius: 7px;
+  cursor: pointer; transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.pw-toggle:hover { color: var(--ink); background: var(--surface-2); }
+.pw-toggle[aria-pressed="true"] { color: var(--primary); }
+.pw-toggle:disabled { cursor: not-allowed; opacity: 0.5; }
+.pw-toggle:disabled:hover { color: var(--ink-faint); background: transparent; }
 
 /* ---- panels ---- */
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; }
@@ -497,8 +521,9 @@ dialog.modal::backdrop { background: oklch(0.2 0.03 232 / 0.45); backdrop-filter
 .tier-rail[data-tier="0"] { background: var(--accent); }
 .tier-rail[data-tier="1"] { background: var(--primary); }
 .tier-rail[data-tier="2"] { background: var(--info-ink); }
-.tier-rail[data-tier="3"] { background: var(--ink-faint); }
-.tier-rail[data-tier="4"] { background: var(--border-strong); }
+.tier-rail[data-tier="3"] { background: var(--warning); }
+.tier-rail[data-tier="4"] { background: var(--ink-faint); }
+.tier-rail[data-tier="5"] { background: var(--border-strong); }
 
 /* auth */
 .auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px;

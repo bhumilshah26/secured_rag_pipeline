@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login, setToken, verifyOtp } from "@/lib/api";
-import { Button, Field, Input, Panel } from "@/app/components/ui";
+import { Button, Field, Input, PasswordInput, Panel } from "@/app/components/ui";
 import { ThemeToggle } from "@/app/components/theme";
 
 export default function LoginPage() {
@@ -62,15 +62,16 @@ export default function LoginPage() {
 
         <form onSubmit={userPending ? onVerifyOtp : onSubmit} className="stack" style={{ gap: 14 }}>
           <Field label="Email">
-            <Input type="email" autoComplete="username" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            {/* Locked once a code is issued: the challenge is bound to this address. */}
+            <Input type="email" autoComplete="username" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading || userPending} required />
           </Field>
           {!userPending ? (
             <Field label="Password">
-              <Input type="password" autoComplete="current-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <PasswordInput autoComplete="current-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} required />
             </Field>
           ) : (
             <Field label="6-digit code">
-              <Input type="text" inputMode="numeric" placeholder="123456" value={otp} onChange={(e) => setOtp(e.target.value)} required />
+              <Input type="text" inputMode="numeric" placeholder="123456" value={otp} onChange={(e) => setOtp(e.target.value)} disabled={loading} required />
             </Field>
           )}
           {userPending && <p className="muted" style={{ margin: 0, fontSize: 13 }}>

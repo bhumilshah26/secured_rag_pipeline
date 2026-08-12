@@ -5,7 +5,7 @@ export type IconName =
   | "overview" | "ask" | "knowledge" | "connectors" | "audit" | "team" | "settings"
   | "logout" | "sun" | "moon" | "search" | "upload" | "trash" | "plus" | "check" | "x"
   | "chevron-down" | "chevron-left" | "chevron-right" | "calendar" | "menu" | "pencil"
-  | "shield" | "file" | "external" | "filter" | "user"
+  | "shield" | "file" | "external" | "filter" | "user" | "eye" | "eye-off"
   | "gdrive" | "onedrive" | "sharepoint" | "confluence" | "slack" | "plug";
 
 const P: Record<IconName, JSX.Element> = {
@@ -33,6 +33,8 @@ const P: Record<IconName, JSX.Element> = {
   calendar: <><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></>,
   shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
   user: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
+  eye: <><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></>,
+  "eye-off": <><path d="M9.9 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17.9 17.9 0 0 1-3.1 4.1" /><path d="M6.6 6.6A17.7 17.7 0 0 0 2 12s3.6 7 10 7a10.2 10.2 0 0 0 4.4-1" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /><line x1="3" y1="3" x2="21" y2="21" /></>,
   file: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></>,
   external: <><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></>,
   filter: <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />,

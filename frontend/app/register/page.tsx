@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { register, setToken, verifyOtp } from "@/lib/api";
-import { Button, Field, Input, Panel } from "@/app/components/ui";
+import { Button, Field, Input, PasswordInput, Panel } from "@/app/components/ui";
 import { ThemeToggle } from "@/app/components/theme";
 
 function slugify(s: string) {
@@ -76,23 +76,23 @@ export default function RegisterPage() {
           {!pending ? (
             <>
               <Field label="Organization name">
-                <Input placeholder="Acme Corporation" value={name}
+                <Input placeholder="Acme Corporation" value={name} disabled={loading}
                   onChange={(e) => { setName(e.target.value); if (!slugEdited) setSlug(slugify(e.target.value)); }} required />
               </Field>
               <Field label="Workspace slug" hint="Lowercase identifier, unique across the platform.">
-                <Input className="mono" placeholder="acme" value={slug}
+                <Input className="mono" placeholder="acme" value={slug} disabled={loading}
                   onChange={(e) => { setSlugEdited(true); setSlug(slugify(e.target.value)); }} required />
               </Field>
               <Field label="Admin email">
-                <Input type="email" placeholder="admin@acme.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <Input type="email" placeholder="admin@acme.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} required />
               </Field>
               <Field label="Admin password" hint="At least 8 characters.">
-                <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <PasswordInput autoComplete="new-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} required />
               </Field>
             </>
           ) : (
             <Field label="6-digit code">
-              <Input type="text" inputMode="numeric" placeholder="123456" value={otp} onChange={(e) => setOtp(e.target.value)} required />
+              <Input type="text" inputMode="numeric" placeholder="123456" value={otp} onChange={(e) => setOtp(e.target.value)} disabled={loading} required />
             </Field>
           )}
           {pending && <p className="muted" style={{ margin: 0, fontSize: 13 }}>
