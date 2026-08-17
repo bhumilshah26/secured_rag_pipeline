@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/app/components/Toast";
 import { useRouter } from "next/navigation";
 import { login, setToken, verifyOtp } from "@/lib/api";
@@ -15,6 +15,13 @@ export default function LoginPage() {
   const [userPending, setUserPending] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+   useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,6 +31,7 @@ export default function LoginPage() {
       const res = await login(email, password);
       if ("pending" in res && res.pending) {
         setUserPending(true);
+        setCooldown(30);
       } else {
         setToken(res.access_token);
         router.replace("/overview");
@@ -32,6 +40,23 @@ export default function LoginPage() {
       const e = err as Error & { status?: number };
       if ((e.status ?? 0) >= 500) toast.push(e.message, "error");
       else setError(e.message || "Invalid email or password.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onResend() {
+    if (cooldown > 0 || loading) return;
+    setError("");
+    setLoading(true);
+    try {
+      await login(email, password);   // re-issues and re-emails a fresh code
+      toast.push("A new code was sent to your email.", "success");
+      setCooldown(30);
+    } catch (err) {
+      const e = err as Error & { status?: number };
+      if ((e.status ?? 0) >= 500) toast.push(e.message, "error");
+      else setError(e.message || "Couldn't resend the code.");
     } finally {
       setLoading(false);
     }
@@ -81,7 +106,12 @@ export default function LoginPage() {
             </Field>
           )}
           {userPending && <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-            Enter the code sent to your email to complete sign in.
+            Enter the code sent to your email to complete sign in.{" "}
+            <button type="button" onClick={onResend} disabled={cooldown > 0 || loading}
+              style={{ background: "none", border: "none", padding: 0, cursor: cooldown > 0 ? "default" : "pointer",
+                       color: cooldown > 0 ? "var(--muted)" : "var(--primary)", font: "inherit", textDecoration: "underline" }}>
+              {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
+            </button>
           </p>}
           {error && <div className="danger-panel" style={{ fontSize: 13, padding: 12 }}>{error}</div>}
           <Button type="submit" variant="primary" block loading={loading}>
