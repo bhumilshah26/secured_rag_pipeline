@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useToast } from "@/app/components/Toast";
 import { useRouter } from "next/navigation";
 import { login, setToken, verifyOtp } from "@/lib/api";
 import { Button, Field, Input, PasswordInput, Panel } from "@/app/components/ui";
@@ -7,6 +8,7 @@ import { ThemeToggle } from "@/app/components/theme";
 
 export default function LoginPage() {
   const router = useRouter();
+  const toast = useToast();   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
@@ -27,7 +29,9 @@ export default function LoginPage() {
         router.replace("/overview");
       }
     } catch (err) {
-      setError((err as Error).message || "Invalid credentials");
+      const e = err as Error & { status?: number };
+      if ((e.status ?? 0) >= 500) toast.push(e.message, "error");
+      else setError(e.message || "Invalid email or password.");
     } finally {
       setLoading(false);
     }
@@ -42,7 +46,9 @@ export default function LoginPage() {
       setToken(res.access_token);
       router.replace("/overview");
     } catch (err) {
-      setError((err as Error).message || "Invalid or expired code");
+      const e = err as Error & { status?: number };
+      if ((e.status ?? 0) >= 500) toast.push("We couldn't verify your code due to a server issue. Please try again.", "error");
+      else setError(e.message || "Invalid or expired code.");
     } finally {
       setLoading(false);
     }

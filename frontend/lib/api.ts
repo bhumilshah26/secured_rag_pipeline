@@ -24,7 +24,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || `Request failed: ${res.status}`);
+    const err = new Error(
+      res.status >= 500
+        ? "A server error occurred on our side. Please try again in a moment."
+        : body.detail || `Request failed: ${res.status}`
+    ) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
   return res.json() as Promise<T>;
 }
@@ -89,7 +95,16 @@ export async function login(email: string, password: string) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
   });
-  if (!res.ok) throw new Error("Invalid credentials");
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const err = new Error(
+      res.status >= 500
+        ? "We couldn't send your verification code right now — the service is temporarily unavailable. Please try again shortly."
+        : body.detail || "Invalid email or password."
+    ) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
   return res.json() as Promise<AuthResponse>;
 }
 

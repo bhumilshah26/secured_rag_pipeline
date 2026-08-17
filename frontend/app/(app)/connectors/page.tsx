@@ -72,12 +72,12 @@ export default function ConnectorsPage() {
         const status = await connectorStatus(c.id);
         if (status.connected) {
           setConnected((current) => ({ ...current, [c.id]: true }));
-          toast.push(`${c.display_name} is connected and ready to browse.`, "success");
+          toast.push(`You authorized ${c.display_name} — it's connected and ready to browse.`, "success");
           refresh();
           return;
         }
         if (Date.now() >= deadline) {
-          toast.push(`Connection to ${c.display_name} was not completed. Please try again.`, "error");
+          toast.push(`Authorization for ${c.display_name} was canceled or not completed — no account was connected. Click Connect to try again.`, "error");
           refresh();
           return;
         }
