@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   connectConnector, connectorStatus, ingestSelected, listConnectorFiles, listConnectors,
@@ -27,11 +27,15 @@ export default function ConnectorDetailPage() {
   const [connected, setConnected] = useState<boolean | null>(null);
   const [cfgOpen, setCfgOpen] = useState(false);
   const [cfgText, setCfgText] = useState("{}");
+  const pollTimer = useRef<number | null>(null);
 
   useEffect(() => {
     listConnectors().then((all) => setSource(all.find((c) => c.id === id) ?? null)).catch(() => {});
     connectorStatus(id).then((s) => setConnected(s.connected)).catch(() => setConnected(false));
   }, [id]);
+  useEffect(() => () => {
+    if (pollTimer.current !== null) window.clearTimeout(pollTimer.current);
+  }, []);
 
   if (!can(me?.role, "connect_source")) {
     return <div className="page container"><Panel><EmptyState glyph="🔒" title="Not authorized" /></Panel></div>;
@@ -51,9 +55,37 @@ export default function ConnectorDetailPage() {
     setBusy("connect");
     try {
       const res = await connectConnector(id);
-      if (res.redirect_url) { window.open(res.redirect_url, "_blank"); toast.push("Authorize in the new tab, then re-check.", "info"); }
+      if (res.redirect_url) {
+        window.open(res.redirect_url, "_blank");
+        toast.push("Authorize in the new tab. We'll update this page automatically.", "info");
+        waitForConnection();
+      }
     } catch (e) { toast.push((e as Error).message, "error"); }
     finally { setBusy(""); }
+  }
+
+  function waitForConnection() {
+    if (pollTimer.current !== null) window.clearTimeout(pollTimer.current);
+    const deadline = Date.now() + 120_000;
+    const poll = async () => {
+      try {
+        const status = await connectorStatus(id);
+        if (status.connected) {
+          setConnected(true);
+          toast.push(`${source?.display_name ?? "Source"} is connected and ready to browse.`, "success");
+          listConnectors().then((all) => setSource(all.find((c) => c.id === id) ?? null)).catch(() => {});
+          return;
+        }
+        if (Date.now() >= deadline) {
+          toast.push("Connection was not completed. Please try again.", "error");
+          return;
+        }
+        pollTimer.current = window.setTimeout(poll, 2_000);
+      } catch (e) {
+        toast.push(`Couldn't confirm the connection: ${(e as Error).message}`, "error");
+      }
+    };
+    pollTimer.current = window.setTimeout(poll, 2_000);
   }
 
   function toggle(extId: string) {

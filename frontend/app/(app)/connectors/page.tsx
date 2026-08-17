@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CONNECTOR_KINDS, connectConnector, connectorStatus, deleteConnector,
@@ -23,12 +23,16 @@ export default function ConnectorsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [delSrc, setDelSrc] = useState<Connector | null>(null);
   const [connected, setConnected] = useState<Record<string, boolean>>({});
+  const pollTimer = useRef<number | null>(null);
 
   async function refresh() {
     try { setList(await listConnectors()); }
     catch (e) { toast.push((e as Error).message, "error"); }
   }
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => () => {
+    if (pollTimer.current !== null) window.clearTimeout(pollTimer.current);
+  }, []);
 
   if (!can(me?.role, "connect_source")) {
     return <div className="page container"><Panel><EmptyState glyph="🔒" title="Not authorized">
@@ -49,21 +53,41 @@ export default function ConnectorsPage() {
     setBusy(c.id);
     try {
       const res = await connectConnector(c.id);
-      if (res.redirect_url) { window.open(res.redirect_url, "_blank"); toast.push("Authorize the connection in the new tab, then Check status.", "info"); }
+      if (res.redirect_url) {
+        window.open(res.redirect_url, "_blank");
+        setList((items) => items?.map((item) => item.id === c.id ? { ...item, status: "connecting" } : item) ?? null);
+        toast.push("Authorize the connection in the new tab. We'll update this page automatically.", "info");
+        waitForConnection(c);
+      }
       else toast.push(`Status: ${res.status}`, "info");
     } catch (e) { toast.push((e as Error).message, "error"); }
     finally { setBusy(""); }
   }
 
-  async function onStatus(c: Connector) {
-    setBusy(c.id);
-    try {
-      const s = await connectorStatus(c.id);
-      setConnected((p) => ({ ...p, [c.id]: s.connected }));
-      toast.push(s.connected ? `${c.display_name} is connected` : `${c.display_name} not connected yet`, s.connected ? "success" : "info");
-      refresh();
-    } catch (e) { toast.push((e as Error).message, "error"); }
-    finally { setBusy(""); }
+  function waitForConnection(c: Connector) {
+    if (pollTimer.current !== null) window.clearTimeout(pollTimer.current);
+    const deadline = Date.now() + 120_000;
+    const poll = async () => {
+      try {
+        const status = await connectorStatus(c.id);
+        if (status.connected) {
+          setConnected((current) => ({ ...current, [c.id]: true }));
+          toast.push(`${c.display_name} is connected and ready to browse.`, "success");
+          refresh();
+          return;
+        }
+        if (Date.now() >= deadline) {
+          toast.push(`Connection to ${c.display_name} was not completed. Please try again.`, "error");
+          refresh();
+          return;
+        }
+        pollTimer.current = window.setTimeout(poll, 2_000);
+      } catch (e) {
+        toast.push(`Couldn't confirm ${c.display_name}: ${(e as Error).message}`, "error");
+        refresh();
+      }
+    };
+    pollTimer.current = window.setTimeout(poll, 2_000);
   }
 
   async function onDelete() {
@@ -114,7 +138,6 @@ export default function ConnectorsPage() {
               </div>
               <div className="row">
                 <Button size="sm" variant="primary" loading={busy === c.id} onClick={() => onConnect(c)}>Connect</Button>
-                <Button size="sm" variant="secondary" onClick={() => onStatus(c)}>Check status</Button>
                 <Button size="sm" variant="ghost" onClick={() => router.push(`/connectors/${c.id}`)}>Browse &amp; index →</Button>
                 <div className="grow" />
                 <Button size="sm" variant="danger" onClick={() => setDelSrc(c)} aria-label="Delete"><Icon name="trash" size={15} /></Button>

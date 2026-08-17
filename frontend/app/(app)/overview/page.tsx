@@ -8,7 +8,15 @@ import {
 import { can } from "@/lib/roles";
 import { useMe } from "@/app/components/AppShell";
 import { Badge, Button, EmptyState, Input, Panel, RiskBadge, Skeleton } from "@/app/components/ui";
-import { KIND_LABEL, KindIcon } from "../connectors/kinds";
+import { KIND_LABEL } from "../connectors/kinds";
+
+const SOURCE_IMAGES: Record<string, string> = {
+  gdrive: "/drive.png",
+  onedrive: "/onedrive.png",
+  sharepoint: "/sharepoint.png",
+  confluence: "/confluence.png",
+  slack: "/slack.png",
+};
 
 export default function OverviewPage() {
   const me = useMe();
@@ -29,6 +37,14 @@ export default function OverviewPage() {
   }, [me]);
 
   const security = (events ?? []).filter((e) => /BLOCK|FLAG/.test(e.security_risk ?? ""));
+  const connectedSourceTypes = Object.entries(
+    (sources ?? [])
+      .filter((source) => source.status === "connected")
+      .reduce<Record<string, number>>((counts, source) => {
+        counts[source.kind] = (counts[source.kind] ?? 0) + 1;
+        return counts;
+      }, {})
+  ).slice(0, 5);
 
   return (
     <div className="page container">
@@ -70,14 +86,60 @@ export default function OverviewPage() {
               {sources && <Badge>{sources.length}</Badge>}
             </div>
             {!sources && <><Skeleton h={14} /><Skeleton h={14} w="60%" /></>}
-            {sources && sources.length === 0 && <EmptyState glyph="⇄" title="No sources">Connect Drive, Confluence, Slack…</EmptyState>}
-            <div className="cluster">
-              {sources?.map((s) => (
-                <span key={s.id} className="badge" style={{ gap: 6 }}>
-                  <KindIcon kind={s.kind} size={13} /> {KIND_LABEL[s.kind] ?? s.kind}
+            {sources && connectedSourceTypes.length === 0 && (<EmptyState glyph="⇄" title="No sources">Connect Drive, Confluence, Slack…</EmptyState>)}
+            <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, max-content)",
+              gap: "14px 28px",
+              padding: "8px 0",
+              justifyContent: "start",
+            }}
+          >
+            {connectedSourceTypes.map(([kind, count]) => (
+              <div
+                key={kind}
+                title={KIND_LABEL[kind] ?? kind}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                {SOURCE_IMAGES[kind] ? (
+                  <img
+                    src={SOURCE_IMAGES[kind]}
+                    alt={KIND_LABEL[kind] ?? kind}
+                    width={60}
+                    height={60}
+                    style={{ objectFit: "contain" }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 32, lineHeight: "40px" }}>⇄</span>
+                )}
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: 26,
+                    height: 26,
+                    padding: "0 8px",
+                    borderRadius: 999,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    fontVariantNumeric: "tabular-nums",
+                    color: "var(--ink)",
+                    background: "color-mix(in srgb, var(--ink) 8%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--ink) 15%, transparent)",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+                  }}
+                >
+                  {count}
                 </span>
-              ))}
-            </div>
+              </div>
+            ))}
+          </div>
             <div className="row"><Button size="sm" variant="ghost" onClick={() => router.push("/connectors")}>Manage connectors →</Button></div>
           </Panel>
         )}
