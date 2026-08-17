@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { login, setToken, verifyOtp } from "@/lib/api";
 import { Button, Field, Input, PasswordInput, Panel } from "@/app/components/ui";
 import { ThemeToggle } from "@/app/components/theme";
+import { OtpInput } from "@/app/components/OtpInput";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -62,21 +63,25 @@ export default function LoginPage() {
     }
   }
 
-  async function onVerifyOtp(e: React.FormEvent) {
-    e.preventDefault();
+  async function verifyCode(code: string) {
+    if (loading || code.length < 6) return;
     setError("");
     setLoading(true);
     try {
-      const res = await verifyOtp({ email, code: otp, purpose: "login" });
+      const res = await verifyOtp({ email, code, purpose: "login" });
       setToken(res.access_token);
       router.replace("/overview");
     } catch (err) {
       const e = err as Error & { status?: number };
       if ((e.status ?? 0) >= 500) toast.push("We couldn't verify your code due to a server issue. Please try again.", "error");
       else setError(e.message || "Invalid or expired code.");
-    } finally {
-      setLoading(false);
+      setLoading(false);   // only reset on failure; on success we're navigating away
     }
+  }
+
+  async function onVerifyOtp(e: React.FormEvent) {
+    e.preventDefault();
+    verifyCode(otp);
   }
 
   return (
@@ -102,7 +107,7 @@ export default function LoginPage() {
             </Field>
           ) : (
             <Field label="6-digit code">
-              <Input type="text" inputMode="numeric" placeholder="123456" value={otp} onChange={(e) => setOtp(e.target.value)} disabled={loading} required />
+              <OtpInput value={otp} onChange={setOtp} onComplete={verifyCode} disabled={loading} />
             </Field>
           )}
           {userPending && <p className="muted" style={{ margin: 0, fontSize: 13 }}>
