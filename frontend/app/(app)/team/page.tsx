@@ -4,7 +4,7 @@ import { createUser, deleteUser, listUsers, type UserRow } from "@/lib/api";
 import { ALL_ROLES, CAPABILITY_MATRIX, can, type Role } from "@/lib/roles";
 import { useMe } from "@/app/components/AppShell";
 import { useToast } from "@/app/components/Toast";
-import { Badge, Button, Dialog, EmptyState, Field, Input, PasswordInput, Panel, Select, Skeleton } from "@/app/components/ui";
+import { Badge, Button, Dialog, EmptyState, Field, Input, Panel, Select, Skeleton } from "@/app/components/ui";
 import { Icon } from "@/app/components/icons";
 
 // Authority order, highest first.
@@ -36,7 +36,6 @@ export default function TeamPage() {
   const [users, setUsers] = useState<UserRow[] | null>(null);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [role, setRole] = useState("VIEWER");
   const [busy, setBusy] = useState(false);
 
@@ -53,12 +52,11 @@ export default function TeamPage() {
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 8) { toast.push("Password must be at least 8 characters.", "error"); return; }
     setBusy(true);
     try {
-      const u = await createUser({ email, password, role });
-      toast.push(`Added ${u.email} (${u.role})`, "success");
-      setEmail(""); setPassword(""); setRole("VIEWER"); setOpen(false); refresh();
+      const u = await createUser({ email, role });
+      toast.push(`Added ${u.email} (${u.role}) — a temporary password was emailed to them.`, "success");
+      setEmail(""); setRole("VIEWER"); setOpen(false); refresh();
     } catch (err) { toast.push((err as Error).message, "error"); }
     finally { setBusy(false); }
   }
@@ -183,7 +181,6 @@ export default function TeamPage() {
           <Button variant="primary" loading={busy} onClick={onCreate as any}>Create member</Button></>}>
         <form onSubmit={onCreate} className="stack" style={{ gap: 12 }}>
           <Field label="Email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="person@company.com" disabled={busy} required /></Field>
-          <Field label="Temporary password" hint="At least 8 characters."><PasswordInput autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={busy} required /></Field>
           <Field label="Role"><Select value={role} onChange={setRole} ariaLabel="Role" disabled={busy}
             options={ALL_ROLES.map((r) => ({ value: r, label: r }))} /></Field>
         </form>

@@ -52,7 +52,7 @@ export function getAudit(limit = 100) {
   return request<AuditRow[]>(`/admin/audit?limit=${limit}`, { method: "GET" });
 }
 
-export function createUser(body: { email: string; password: string; role: string }) {
+export function createUser(body: { email: string; role: string }) {
   return request<{ id: string; email: string; role: string }>("/auth/users", {
     method: "POST",
     body: JSON.stringify(body),
