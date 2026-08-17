@@ -33,7 +33,7 @@ export default function SettingsPage() {
       await updateProfile(body);
       setPassword("");
       toast.push(body.password ? "Password updated — you're all set." : "Profile updated", "success");
-      if (body.password) window.location.assign("/overview"); // reloads AppShell's me, clearing the redirect guard
+      if (body.password) window.location.assign("/overview"); 
     }
     catch (e) { toast.push((e as Error).message, "error"); }
     finally { setBusy(false); }

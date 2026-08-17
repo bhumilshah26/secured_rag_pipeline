@@ -30,6 +30,12 @@ export default function ConnectorsPage() {
     catch (e) { toast.push((e as Error).message, "error"); }
   }
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => {
+    const missing = (list ?? []).filter((c) => c.status === "connected" && !c.account_label);
+    if (missing.length === 0) return;
+    Promise.allSettled(missing.map((c) => connectorStatus(c.id))).then(() => refresh());
+    /* eslint-disable-next-line */
+  }, [list?.length]);
   useEffect(() => () => {
     if (pollTimer.current !== null) window.clearTimeout(pollTimer.current);
   }, []);
@@ -136,7 +142,10 @@ export default function ConnectorsPage() {
                   <span className="kind-badge"><KindIcon kind={c.kind} size={18} /></span>
                   <div>
                     <div style={{ fontWeight: 600 }}>{c.display_name}</div>
-                    <div className="muted" style={{ fontSize: 12 }}>{KIND_LABEL[c.kind] ?? c.kind}</div>
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      {KIND_LABEL[c.kind] ?? c.kind}
+                      {c.account_label && <> · <span className="mono">{c.account_label}</span></>}
+                    </div>
                   </div>
                 </div>
                 <Badge tone={isConnected(c) ? "success" : "warning"}>{isConnected(c) ? "connected" : c.status}</Badge>

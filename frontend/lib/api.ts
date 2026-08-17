@@ -341,6 +341,7 @@ export type Connector = {
   kind: string;
   display_name: string;
   status: string;
+  account_label?: string | null;
 };
 
 export function listConnectors() {
@@ -363,7 +364,7 @@ export function connectConnector(sourceId: string) {
 }
 
 export function connectorStatus(sourceId: string) {
-  return request<{ connected: boolean; failed?: boolean, accounts: unknown[] }>(
+  return request<{ connected: boolean; failed?: boolean; account_label?: string | null; accounts: unknown[] }>(
     `/connectors/${sourceId}/status`,
     { method: "GET" }
   );
