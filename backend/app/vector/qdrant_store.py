@@ -15,6 +15,7 @@ from app.embeddings import get_embedding_provider
 from fastembed import SparseTextEmbedding
 
 _PAYLOAD_INDEXES = {
+    "source_id": qm.PayloadSchemaType.KEYWORD,
     "tenant_id": qm.PayloadSchemaType.KEYWORD,
     "document_id": qm.PayloadSchemaType.KEYWORD,
     "allowed_roles": qm.PayloadSchemaType.KEYWORD,
