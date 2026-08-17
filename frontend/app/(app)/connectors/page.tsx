@@ -151,7 +151,9 @@ export default function ConnectorsPage() {
                 <Badge tone={isConnected(c) ? "success" : "warning"}>{isConnected(c) ? "connected" : c.status}</Badge>
               </div>
               <div className="row">
-                <Button size="sm" variant="primary" loading={busy === c.id} onClick={() => onConnect(c)}>Connect</Button>
+                {!isConnected(c) && (
+                  <Button size="sm" variant="primary" loading={busy === c.id} onClick={() => onConnect(c)}>Connect</Button>
+                )}
                 <Button size="sm" variant="ghost" onClick={() => router.push(`/connectors/${c.id}`)}>Browse &amp; index →</Button>
                 <div className="grow" />
                 <Button size="sm" variant="danger" onClick={() => setDelSrc(c)} aria-label="Delete"><Icon name="trash" size={15} /></Button>
