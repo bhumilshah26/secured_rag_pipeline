@@ -26,7 +26,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const body = await res.json().catch(() => ({}));
     const err = new Error(
       res.status >= 500
-        ? "A server error occurred on our side. Please try again in a moment."
+        ? body.detail || "A server error occurred on our side. Please try again in a moment."
         : body.detail || `Request failed: ${res.status}`
     ) as Error & { status?: number };
     err.status = res.status;
@@ -99,7 +99,7 @@ export async function login(email: string, password: string) {
     const body = await res.json().catch(() => ({}));
     const err = new Error(
       res.status >= 500
-        ? "We couldn't send your verification code right now — the service is temporarily unavailable. Please try again shortly."
+        ? body.detail || "A server error occurred on our side. Please try again in a moment."
         : body.detail || "Invalid email or password."
     ) as Error & { status?: number };
     err.status = res.status;
@@ -362,7 +362,7 @@ export function connectConnector(sourceId: string) {
 }
 
 export function connectorStatus(sourceId: string) {
-  return request<{ connected: boolean; accounts: unknown[] }>(
+  return request<{ connected: boolean; failed?: boolean, accounts: unknown[] }>(
     `/connectors/${sourceId}/status`,
     { method: "GET" }
   );

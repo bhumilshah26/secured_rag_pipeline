@@ -76,6 +76,11 @@ export default function ConnectorsPage() {
           refresh();
           return;
         }
+        if (status.failed) {
+          toast.push(`You canceled or denied authorization for ${c.display_name} — no account was connected.`, "error");
+          refresh();
+          return;
+        }
         if (Date.now() >= deadline) {
           toast.push(`Authorization for ${c.display_name} was canceled or not completed — no account was connected. Click Connect to try again.`, "error");
           refresh();
