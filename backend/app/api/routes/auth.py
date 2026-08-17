@@ -1,10 +1,13 @@
 """Auth + user management. /register bootstraps a tenant + its first ADMIN."""
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import logger as audit
+from app.config import settings
 from app.db import get_db
 from app.models import Role, Tenant, User
 from app.schemas import (
@@ -25,6 +28,7 @@ from app.security.auth import (
     verify_password,
 )
 from app.security.otp import (
+    MailDeliveryError,
     create_or_replace_otp,
     create_or_replace_pending_registration,
     find_valid_pending_registration,
@@ -33,30 +37,100 @@ from app.security.otp import (
 )
 from app.security.rbac import require_capability
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=AuthPendingResponse, status_code=201)
-def register(req: RegisterRequest, db: Session = Depends(get_db)) -> AuthPendingResponse:
+def _issue_token(user: User) -> TokenResponse:
+    token = create_access_token(user_id=user.id, tenant_id=user.tenant_id, role=user.role)
+    return TokenResponse(access_token=token, role=user.role, tenant_id=user.tenant_id)
+
+
+def _start_second_factor(
+    db: Session, user: User, purpose: str
+) -> AuthPendingResponse | TokenResponse:
+    """Send the login OTP and ask the caller to come back with it. With OTP_ENABLED=false
+    the second factor is skipped and the token is issued straight away."""
+    if not settings.otp_enabled:
+        audit.record_event(
+            db, event_type=f"auth.{purpose}.otp.disabled", tenant_id=user.tenant_id,
+            user_id=user.id, response_status="200",
+        )
+        return _issue_token(user)
+
+    otp = create_or_replace_otp(db, user, purpose=purpose)
+    try:
+        send_otp_email(user.email, otp.code)
+    except MailDeliveryError as exc:
+        # The reason names configuration, so it is logged rather than returned to the caller.
+        logger.error("OTP delivery failed for purpose=%s: %s", purpose, exc)
+        audit.record_event(
+            db, event_type=f"auth.{purpose}.otp.undeliverable", tenant_id=user.tenant_id,
+            user_id=user.id, response_status="503",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not send the verification code. Check the server mail configuration.",
+        ) from exc
+
+    audit.record_event(
+        db, event_type=f"auth.{purpose}.otp.sent", tenant_id=user.tenant_id,
+        user_id=user.id, response_status="200",
+    )
+    return AuthPendingResponse(user_id=user.id, email=user.email, pending=True)
+
+
+def _create_tenant_with_admin(db: Session, *, name: str, slug: str, email: str, hashed: str) -> User:
+    tenant = Tenant(name=name, slug=slug)
+    db.add(tenant)
+    db.flush()
+    admin = User(tenant_id=tenant.id, email=email, hashed_password=hashed, role=Role.ADMIN)
+    db.add(admin)
+    return admin
+
+
+@router.post("/register", response_model=None, status_code=201)
+def register(
+    req: RegisterRequest, db: Session = Depends(get_db)
+) -> AuthPendingResponse | TokenResponse:
     """Hold the signup and email a code. Nothing is created until /verify-otp succeeds, so
     an unverified attempt cannot claim a slug or leave an orphaned tenant."""
     if db.scalar(select(Tenant).where(Tenant.slug == req.tenant_slug)):
         raise HTTPException(status_code=409, detail="Tenant slug already exists")
+
+    hashed = hash_password(req.admin_password)
+
+    # Nothing to verify against when the second factor is off, so create it outright.
+    if not settings.otp_enabled:
+        admin = _create_tenant_with_admin(
+            db, name=req.tenant_name, slug=req.tenant_slug, email=req.admin_email, hashed=hashed
+        )
+        db.commit()
+        audit.record_event(
+            db, event_type="tenant.register.otp.disabled", tenant_id=admin.tenant_id,
+            user_id=admin.id, response_status="201",
+        )
+        return _issue_token(admin)
 
     pending = create_or_replace_pending_registration(
         db,
         tenant_name=req.tenant_name,
         tenant_slug=req.tenant_slug,
         email=req.admin_email,
-        hashed_password=hash_password(req.admin_password),
+        hashed_password=hashed,
     )
     try:
         send_otp_email(pending.email, pending.code)
-    except Exception as exc:
+    except MailDeliveryError as exc:
         # Undeliverable code means the signup can never be completed; drop the held row
         # rather than leaving it to expire.
+        logger.error("OTP delivery failed for purpose=register: %s", exc)
         db.delete(pending)
         db.commit()
+        audit.record_event(
+            db, event_type="tenant.register.otp.undeliverable", response_status="503",
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Could not send the verification code. Check the server mail configuration.",
@@ -68,23 +142,17 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)) -> AuthPending
     return AuthPendingResponse(email=pending.email, pending=True)
 
 
-@router.post("/login", response_model=AuthPendingResponse)
+@router.post("/login", response_model=None)
 def login(
     form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
-) -> TokenResponse:
+) -> AuthPendingResponse | TokenResponse:
     # OAuth2 form uses `username`; we treat it as email.
     user = db.scalar(select(User).where(User.email == form.username))
     if not user or not verify_password(form.password, user.hashed_password) or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
         )
-    otp = create_or_replace_otp(db, user, purpose="login")
-    send_otp_email(user.email, otp.code)
-    audit.record_event(
-        db, event_type="auth.login.otp.sent", tenant_id=user.tenant_id, user_id=user.id,
-        response_status="200",
-    )
-    return AuthPendingResponse(user_id=user.id, email=user.email, pending=True)
+    return _start_second_factor(db, user, purpose="login")
 
 
 def _complete_registration(db: Session, *, email: str, code: str) -> TokenResponse:
@@ -100,25 +168,21 @@ def _complete_registration(db: Session, *, email: str, code: str) -> TokenRespon
         db.commit()
         raise HTTPException(status_code=409, detail="Tenant slug already exists")
 
-    tenant = Tenant(name=pending.tenant_name, slug=pending.tenant_slug)
-    db.add(tenant)
-    db.flush()
-    admin = User(
-        tenant_id=tenant.id,
+    admin = _create_tenant_with_admin(
+        db,
+        name=pending.tenant_name,
+        slug=pending.tenant_slug,
         email=pending.email,
-        hashed_password=pending.hashed_password,  # already hashed at /register
-        role=Role.ADMIN,
+        hashed=pending.hashed_password,  # already hashed at /register
     )
-    db.add(admin)
     db.delete(pending)
     db.commit()
 
     audit.record_event(
-        db, event_type="tenant.register.verified", tenant_id=tenant.id, user_id=admin.id,
-        response_status="200",
+        db, event_type="tenant.register.verified", tenant_id=admin.tenant_id,
+        user_id=admin.id, response_status="200",
     )
-    token = create_access_token(user_id=admin.id, tenant_id=tenant.id, role=admin.role)
-    return TokenResponse(access_token=token, role=admin.role, tenant_id=tenant.id)
+    return _issue_token(admin)
 
 
 @router.post("/verify-otp", response_model=TokenResponse)

@@ -20,6 +20,32 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     jwt_algorithm: str = "HS256"
 
+    # Second factor. Disabling it makes /login and /register return a token directly —
+    # the escape hatch for a deployment with no working mail transport.
+    otp_enabled: bool = True
+
+    # Mail transport. Hugging Face Spaces (like most PaaS free tiers) blocks outbound SMTP
+    # ports, where "smtp" fails with ENETUNREACH; "resend" delivers over HTTPS instead.
+    mail_provider: str = "auto"  # auto | gmail | smtp | resend | console
+    resend_api_key: str = ""
+
+    # Gmail API over HTTPS (port 443): sends from your own Gmail to any recipient, with no
+    # domain to verify and no SMTP port to be blocked.
+    gmail_client_id: str = ""
+    gmail_client_secret: str = ""
+    gmail_refresh_token: str = ""
+
+    @property
+    def resolved_mail_provider(self) -> str:
+        """On auto, prefer an HTTPS transport whenever its credentials are present, so a
+        host that blocks SMTP egress needs only the credentials, not a second variable."""
+        choice = self.mail_provider.strip().lower()
+        if choice != "auto":
+            return choice
+        if self.gmail_refresh_token:
+            return "gmail"
+        return "resend" if self.resend_api_key else "smtp"
+
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""
@@ -44,6 +70,8 @@ class Settings(BaseSettings):
     postgres_db: str = "rag"
     postgres_host: str = "localhost"
     postgres_port: int = 5432
+    postgres_sslmode: str = ""          # "require" for hosted Postgres (Neon, Supabase, RDS)
+    postgres_connect_timeout: int = 10  # seconds; fail fast instead of hanging on boot
 
     # Qdrant
     qdrant_url: str = ""

@@ -1,4 +1,6 @@
 """FastAPI application entrypoint: middleware, router wiring, startup."""
+import logging
+import threading
 import uuid
 
 from fastapi import FastAPI, Request
@@ -8,6 +10,8 @@ from app.api.routes import admin, auth, chat, connectors, conversations, documen
 from app.config import settings
 from app.db import init_db
 from app.vector.qdrant_store import ensure_collection
+
+logger = logging.getLogger("app.startup")
 
 app = FastAPI(title="Secured Enterprise RAG", version="0.1.0")
 
@@ -34,18 +38,38 @@ async def request_context(request: Request, call_next):
     return response
 
 
+# Bootstrap runs off the startup path. Creating tables and the Qdrant collection both go
+# over the network, and the collection needs the embedding model's dimension (loading the
+# model on a cold cache takes minutes). Doing that inside the startup event delays the
+# first accepted connection, which a platform health check reads as "never came up".
+# Uvicorn binds the port immediately instead, and the health endpoint reports progress.
+_boot_status: dict[str, str] = {"database": "pending", "vector_store": "pending"}
+
+
+def _bootstrap() -> None:
+    for name, step in (("database", init_db), ("vector_store", ensure_collection)):
+        try:
+            step()
+            _boot_status[name] = "ready"
+        except Exception as exc:  # keep serving; the health payload carries the reason
+            _boot_status[name] = f"failed: {type(exc).__name__}: {exc}"
+            logger.exception("bootstrap step %r failed", name)
+
+
 @app.on_event("startup")
 def on_startup() -> None:
-    init_db()
-    ensure_collection()
+    threading.Thread(target=_bootstrap, name="bootstrap", daemon=True).start()
 
 
 @app.get("/", tags=["meta"])
 def health() -> dict:
     return {
         "status": "ok",
+        "bootstrap": _boot_status,
         "embedding_provider": settings.embedding_provider,
         "llm_provider": settings.llm_provider,
+        "mail_provider": settings.resolved_mail_provider,  # what "auto" actually picked
+        "otp_enabled": settings.otp_enabled,
     }
 
 
