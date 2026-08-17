@@ -120,6 +120,7 @@ export type Me = {
   email: string;
   role: string;
   tenant_id: string;
+  must_change_password?: boolean;
 };
 
 export function getMe() {

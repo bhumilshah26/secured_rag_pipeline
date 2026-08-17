@@ -29,7 +29,12 @@ export default function SettingsPage() {
     if (!body.email && !body.password) { toast.push("Nothing to change.", "info"); return; }
     if (body.password && body.password.length < 8) { toast.push("Password must be at least 8 characters.", "error"); return; }
     setBusy(true);
-    try { await updateProfile(body); setPassword(""); toast.push("Profile updated", "success"); }
+    try {
+      await updateProfile(body);
+      setPassword("");
+      toast.push(body.password ? "Password updated — you're all set." : "Profile updated", "success");
+      if (body.password) window.location.assign("/overview"); // reloads AppShell's me, clearing the redirect guard
+    }
     catch (e) { toast.push((e as Error).message, "error"); }
     finally { setBusy(false); }
   }
@@ -42,7 +47,11 @@ export default function SettingsPage() {
   return (
     <div className="page container reading">
       <div className="page-head"><h1>Settings</h1></div>
-
+      {me?.must_change_password && (
+        <Panel className="danger-panel" style={{ marginBottom: 16, fontSize: 13.5 }}>
+          You&apos;re signed in with a temporary password. Set a new password below to continue using your workspace.
+        </Panel>
+      )}
       <div className="row" style={{ gap: 4, marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
         <TabBtn id="profile" label="Profile" />
         <TabBtn id="appearance" label="Appearance" />

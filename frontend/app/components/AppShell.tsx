@@ -30,9 +30,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!getToken()) { router.replace("/login"); return; }
-    getMe().then((m) => { setMe(m); setReady(true); })
+    getMe().then((m) => {
+      setMe(m); setReady(true);
+      if (m.must_change_password && pathname !== "/settings") router.replace("/settings");
+    })
       .catch(() => { clearToken(); router.replace("/login"); });
-  }, [router]);
+  }, [router, pathname]);
 
   if (!ready || !me) {
     return (
