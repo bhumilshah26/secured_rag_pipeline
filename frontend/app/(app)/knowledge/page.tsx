@@ -10,6 +10,7 @@ import { useMe } from "@/app/components/AppShell";
 import { useToast } from "@/app/components/Toast";
 import { Badge, Button, Chip, Dialog, EmptyState, Field, Input, Panel, Select, Skeleton, Textarea } from "@/app/components/ui";
 import { Icon } from "@/app/components/icons";
+import { KindIcon } from "../connectors/kinds";
 
 function RoleChips({
   value, onChange, disabled,
@@ -147,12 +148,18 @@ export default function KnowledgePage() {
         <div className="table-wrap">
           <table className="data">
             <thead><tr>
-              <th>Title</th><th>Chunks</th><th>Status</th><th>Roles</th>{(canPerms) && <th style={{ width: 1 }}></th>}
+              <th>Title</th><th>Source</th><th>Chunks</th><th>Status</th><th>Roles</th>{(canPerms) && <th style={{ width: 1 }}></th>}
             </tr></thead>
             <tbody>
               {shown.map((d) => (
                 <tr key={d.id}>
                   <td><strong style={{ fontWeight: 550 }}>{d.title}</strong></td>
+                  <td>
+                    <span className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
+                      {d.source_kind && d.source_kind !== "upload" && <KindIcon kind={d.source_kind} size={14} />}
+                      <span className="muted" style={{ fontSize: 12.5 }}>{d.source_name ?? "Direct upload"}</span>
+                    </span>
+                  </td>
                   <td className="mono faint">{d.chunk_count}</td>
                   <td><StatusBadge status={d.status} /></td>
                   <td><span className="muted" style={{ fontSize: 12.5 }}>{d.allowed_roles.join(", ")}</span></td>

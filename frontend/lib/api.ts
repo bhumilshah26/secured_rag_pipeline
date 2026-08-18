@@ -289,6 +289,8 @@ export type DocumentOut = {
   chunk_count: number;
   allowed_roles: string[];
   created_at: string;
+  source_kind?: string;
+  source_name?: string;
 };
 
 // Upload a local file via multipart/form-data. Don't set Content-Type — the browser
