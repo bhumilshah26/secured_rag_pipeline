@@ -4,7 +4,7 @@ import { getAudit, type AuditRow } from "@/lib/api";
 import { can } from "@/lib/roles";
 import { useMe } from "@/app/components/AppShell";
 import { useToast } from "@/app/components/Toast";
-import { Badge, Button, EmptyState, Input, Panel, RiskBadge, Select, Skeleton } from "@/app/components/ui";
+import { Badge, Button, Dialog, EmptyState, Input, Panel, RiskBadge, Select, Skeleton } from "@/app/components/ui";
 import { Icon } from "@/app/components/icons";
 import { DatePicker } from "@/app/components/DatePicker";
 
@@ -29,6 +29,7 @@ export default function AuditPage() {
   const [text, setText] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [detail, setDetail] = useState<AuditRow | null>(null);
 
   useEffect(() => {
     if (!can(me?.role, "read_audit")) return;
@@ -104,8 +105,12 @@ export default function AuditPage() {
               <th>Time</th><th>Event</th><th>User</th><th>Risk</th><th>Docs</th><th>Model</th><th>Status</th><th>Query</th>
             </tr></thead>
             <tbody>
-              {shown.map((r) => (
-                <tr key={r.id}>
+              {shown.map((r) => {
+                return (
+                <tr key={r.id}
+                  onClick={() => setDetail(r)}
+                  style={{ cursor: "pointer" }}
+                  title="Click to view details">
                   <td className="faint" style={{ whiteSpace: "nowrap" }}>{new Date(r.created_at).toLocaleString()}</td>
                   <td><span className="mono" style={{ fontSize: 12.5 }}>{r.event_type}</span></td>
                   <td className="faint" style={{ fontSize: 12.5 }} title={r.user_id ?? ""}>
@@ -117,11 +122,37 @@ export default function AuditPage() {
                   <td>{r.response_status ? <Badge tone={r.response_status === "200" || r.response_status === "201" ? "success" : "danger"}>{r.response_status}</Badge> : "—"}</td>
                   <td className="mono faint" title={r.query_hash ?? ""}>{r.query_hash ? r.query_hash.slice(0, 12) + "…" : "—"}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
+
+      <Dialog open={!!detail} onClose={() => setDetail(null)}
+        title={detail ? (riskOf(detail.security_risk) === "BLOCK" ? "Blocked query"
+          : riskOf(detail.security_risk) === "FLAG" ? "Flagged query"
+          : "Event details") : "Event details"}
+        footer={<Button variant="ghost" onClick={() => setDetail(null)}>Close</Button>}>
+        {detail && (
+          <>
+            <p className="muted" style={{ fontSize: 12.5, marginTop: 0 }}>
+              {new Date(detail.created_at).toLocaleString()} · {detail.user_email ?? detail.user_id ?? "unknown user"} · {detail.event_type}
+            </p>
+            <div className="mono" style={{
+              fontSize: 13, whiteSpace: "pre-wrap", wordBreak: "break-word",
+              background: "var(--surface-2, rgba(0,0,0,0.05))", borderRadius: 8, padding: 12,
+            }}>
+              {detail.query_hash ?? "(no query recorded for this event)"}
+            </div>
+            {detail.security_risk && (
+              <p className="muted" style={{ fontSize: 12.5, marginBottom: 0 }}>
+                Risk verdict: <span className="mono">{detail.security_risk}</span>
+              </p>
+            )}
+          </>
+        )}
+      </Dialog>
     </div>
   );
 }
