@@ -39,6 +39,7 @@ export type AuditRow = {
   id: string;
   event_type: string;
   user_id: string | null;
+  user_email?: string | null;
   query_hash: string | null;
   document_ids: string[];
   authz_decision: string | null;

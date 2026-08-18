@@ -43,7 +43,7 @@ export default function AuditPage() {
     if (event && r.event_type !== event) return false;
     if (risk && riskOf(r.security_risk) !== risk) return false;
     if (text) {
-      const hay = `${r.event_type} ${r.user_id} ${r.query_hash} ${r.model_used} ${r.response_status}`.toLowerCase();
+      const hay = `${r.event_type} ${r.user_id} ${r.user_email ?? ""} ${r.query_hash} ${r.model_used} ${r.response_status}`.toLowerCase();
       if (!hay.includes(text.toLowerCase())) return false;
     }
     return true;
@@ -108,7 +108,9 @@ export default function AuditPage() {
                 <tr key={r.id}>
                   <td className="faint" style={{ whiteSpace: "nowrap" }}>{new Date(r.created_at).toLocaleString()}</td>
                   <td><span className="mono" style={{ fontSize: 12.5 }}>{r.event_type}</span></td>
-                  <td className="mono faint" title={r.user_id ?? ""}>{r.user_id ? r.user_id.slice(0, 8) : "—"}</td>
+                  <td className="faint" style={{ fontSize: 12.5 }} title={r.user_id ?? ""}>
+                    {r.user_email ?? (r.user_id ? r.user_id.slice(0, 8) : "—")}
+                  </td>
                   <td>{r.security_risk ? <RiskBadge risk={riskOf(r.security_risk)} /> : "—"}</td>
                   <td className="faint">{r.document_ids?.length ?? 0}</td>
                   <td className="faint">{r.model_used ?? "—"}</td>
