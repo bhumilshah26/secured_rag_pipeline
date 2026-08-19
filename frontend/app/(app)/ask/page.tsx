@@ -125,20 +125,13 @@ export default function AskPage() {
 
   return (
     <div className="chat-layout">
-      {paneOpen && <ConvoPane disabled={loading} />}
+      {paneOpen
+        ? <ConvoPane disabled={loading} onCollapse={togglePane} />
+        : <ConvoRail disabled={loading} onExpand={togglePane} onNew={newChat} />}
 
       <div className="chat">
         <div className="chat-head">
           <div className="row" style={{ gap: 12, alignItems: "flex-start" }}>
-            <button
-              className="pane-toggle"
-              onClick={togglePane}
-              title={paneOpen ? "Hide conversations" : "Show conversations"}
-              aria-label={paneOpen ? "Hide conversations" : "Show conversations"}
-              aria-pressed={paneOpen}
-            >
-              <Icon name="menu" size={18} />
-            </button>
             <div>
               <h1>Ask</h1>
               <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
@@ -147,7 +140,7 @@ export default function AskPage() {
               </p>
             </div>
           </div>
-          {messages.length > 0 && (
+          {!paneOpen && messages.length > 0 && (
             <Button variant="ghost" onClick={newChat} disabled={loading}>
               <Icon name="plus" size={15} /> New chat
             </Button>
@@ -160,10 +153,22 @@ export default function AskPage() {
               Fetching your saved messages.
             </EmptyState>
           ) : messages.length === 0 ? (
-            <EmptyState glyph="✦" title="Ask about your company knowledge">
-              Upload documents or connect a source, then start a conversation. The assistant
-              remembers earlier turns, so you can ask follow-ups naturally.
-            </EmptyState>
+              <div className="ask-hero">
+              <span className="glyph"><Icon name="shield" size={22} /></span>
+              <h2>What do you want to know?</h2>
+              <p>Answers come only from documents your role can read — with the sources attached.</p>
+              <div className="ask-suggest">
+                {[
+                  "Summarize the most recently added document",
+                  "What topics does our knowledge base cover?",
+                  "Compare the two most similar documents",
+                ].map((s) => (
+                  <button key={s} type="button" className="ov-chip" onClick={() => void send(s)}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
           ) : (
             messages.map((m) => <ChatRow key={m.id} m={m} />)
           )}
@@ -186,7 +191,7 @@ export default function AskPage() {
           />
           {loading ? (
             <Button type="button" variant="ghost" onClick={stop}>
-              <Icon name="stop" size={15} /> Stop
+              <Icon name="stop" size={30} />
             </Button>
           ) : (
             <Button type="submit" variant="primary" disabled={!query.trim()}>
@@ -194,12 +199,28 @@ export default function AskPage() {
             </Button>
           )}
         </form>
+        <p className="ask-foot mono">grounded · cited · scoped to your role</p>
       </div>
     </div>
   );
 }
 
-function ConvoPane({ disabled }: { disabled: boolean }) {
+function ConvoRail({ disabled, onExpand, onNew }: {
+  disabled: boolean; onExpand: () => void; onNew: () => void;
+}) {
+  return (
+    <aside className="convo-rail">
+      <button className="pane-toggle" onClick={onExpand} title="Show conversations" aria-label="Show conversations">
+        <Icon name="menu" size={18} />
+      </button>
+      <button className="pane-toggle" onClick={onNew} disabled={disabled} title="New chat" aria-label="New chat">
+        <Icon name="plus" size={18} />
+      </button>
+    </aside>
+  );
+}
+
+function ConvoPane({ disabled, onCollapse }: { disabled: boolean; onCollapse: () => void }) {
   const { conversations, currentId, selectConversation, newChat, removeConversation, renameConv } =
     useChat();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -232,9 +253,19 @@ function ConvoPane({ disabled }: { disabled: boolean }) {
 
   return (
     <aside className="convo-pane">
-      <button className="convo-new" onClick={newChat} disabled={disabled}>
-        <Icon name="plus" size={16} /> New chat
-      </button>
+      <div className="row" style={{ gap: 8 }}>
+        <button
+          className="pane-toggle"
+          onClick={onCollapse}
+          title="Hide conversations"
+          aria-label="Hide conversations"
+        >
+          <Icon name="menu" size={18} />
+        </button>
+        <button className="convo-new" style={{ flex: 1 }} onClick={newChat} disabled={disabled}>
+          <Icon name="plus" size={16} /> New chat
+        </button>
+      </div>
 
       <div className="convo-list">
         {conversations.length === 0 ? (
@@ -333,6 +364,12 @@ function ConvoPane({ disabled }: { disabled: boolean }) {
 
 function ChatRow({ m }: { m: ChatMessage }) {
   const isUser = m.role === "user";
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    void navigator.clipboard.writeText(m.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
   return (
     <motion.div
       className={`chat-row ${isUser ? "user" : "assistant"}`}
@@ -370,8 +407,16 @@ function ChatRow({ m }: { m: ChatMessage }) {
           <span style={{ whiteSpace: "pre-wrap" }}>{m.content}</span>
         ) : (
           <div style={{ lineHeight: 1.7 }}>
-            <Markdown text={m.content} />
-            {m.streaming && <span className="caret" />}
+            {m.streaming && !m.content ? (
+              <span className="ask-thinking">
+                Searching your documents<span className="d">.</span><span className="d">.</span><span className="d">.</span>
+              </span>
+            ) : (
+              <>
+                <Markdown text={m.content} />
+                {m.streaming && <span className="caret" />}
+              </>
+            )}
           </div>
         )}
 
@@ -387,12 +432,20 @@ function ChatRow({ m }: { m: ChatMessage }) {
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.2, delay: 0.04 * i }}
+                  title={c.snippet ?? undefined}
                 >
-                  <Icon name="file" size={13} /> {c.title}
+                  <Icon name="file" size={13} /> 
+                  {c.title}
+                  {typeof c.score === "number" && <span className="ask-score mono">{c.score.toFixed(2)}</span>}
                 </motion.span>
               ))}
             </div>
           </>
+        )}
+        {!isUser && !m.streaming && !m.blocked && !m.error && m.content && (
+          <button type="button" className="ask-copy" onClick={copy} title="Copy answer">
+            <Icon name={copied ? "check" : "copy"} size={13} /> {copied ? "Copied" : "Copy"}
+          </button>
         )}
       </div>
     </motion.div>

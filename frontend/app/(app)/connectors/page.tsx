@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CONNECTOR_KINDS, connectConnector, connectorStatus, deleteConnector,
-  listConnectors, registerConnector, type Connector,
+  listConnectors, listDocuments, registerConnector, type Connector, type DocumentOut,
 } from "@/lib/api";
 import { can } from "@/lib/roles";
 import { useMe } from "@/app/components/AppShell";
@@ -23,13 +23,14 @@ export default function ConnectorsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [delSrc, setDelSrc] = useState<Connector | null>(null);
   const [connected, setConnected] = useState<Record<string, boolean>>({});
+  const [docs, setDocs] = useState<DocumentOut[] | null>(null);
   const pollTimer = useRef<number | null>(null);
 
   async function refresh() {
     try { setList(await listConnectors()); }
     catch (e) { toast.push((e as Error).message, "error"); }
   }
-  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { listDocuments().then(setDocs).catch(() => setDocs([])); refresh(); /* eslint-disable-next-line */ }, []);
   useEffect(() => {
     const missing = (list ?? []).filter((c) => c.status === "connected" && !c.account_label);
     if (missing.length === 0) return;
@@ -134,32 +135,47 @@ export default function ConnectorsPage() {
       )}
 
       {list && list.length > 0 && (
-        <div className="grid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))" }}>
-          {list.map((c) => (
-            <Panel key={c.id} className="stack">
-              <div className="row-between">
-                <div className="row" style={{ gap: 10 }}>
+        <div className="conn-grid">
+          {list.map((c) => {
+            const on = isConnected(c);
+            const docCount = (docs ?? []).filter((d) => d.source_name === c.display_name).length;
+            return (
+              <Panel key={c.id} className="conn-card">
+                <div className="conn-head">
                   <span className="kind-badge"><KindIcon kind={c.kind} size={18} /></span>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{c.display_name}</div>
-                    <div className="muted" style={{ fontSize: 12 }}>
-                      {KIND_LABEL[c.kind] ?? c.kind}
-                      {c.account_label && <> · <span className="mono">{c.account_label}</span></>}
-                    </div>
+                  <div className="conn-title">
+                    <div className="name" title={c.display_name}>{c.display_name}</div>
+                    <div className="kind">{KIND_LABEL[c.kind] ?? c.kind}</div>
                   </div>
+                  <Badge tone={on ? "success" : c.status === "connecting" ? "primary" : "warning"}>
+                    {on ? "connected" : c.status}
+                  </Badge>
                 </div>
-                <Badge tone={isConnected(c) ? "success" : "warning"}>{isConnected(c) ? "connected" : c.status}</Badge>
-              </div>
-              <div className="row">
-                {!isConnected(c) && (
-                  <Button size="sm" variant="primary" loading={busy === c.id} onClick={() => onConnect(c)}>Connect</Button>
-                )}
-                <Button size="sm" variant="ghost" onClick={() => router.push(`/connectors/${c.id}`)}>Browse &amp; index →</Button>
-                <div className="grow" />
-                <Button size="sm" variant="danger" onClick={() => setDelSrc(c)} aria-label="Delete"><Icon name="trash" size={15} /></Button>
-              </div>
-            </Panel>
-          ))}
+
+                <div className="conn-meta mono" title={c.account_label ?? undefined}>
+                  {on
+                    ? (c.account_label ?? "account connected")
+                    : c.status === "connecting"
+                      ? "waiting for authorization…"
+                      : "not authorized yet — click Connect"}
+                </div>
+
+                <div className="conn-stats">
+                  <span className="mono n">{docCount}</span>
+                  <span>document{docCount === 1 ? "" : "s"} indexed from this source</span>
+                </div>
+
+                <div className="conn-foot">
+                  {!on && (
+                    <Button size="sm" variant="primary" loading={busy === c.id} onClick={() => onConnect(c)}>Connect</Button>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={() => router.push(`/connectors/${c.id}`)}>Browse &amp; index →</Button>
+                  <div className="grow" />
+                  <Button size="sm" variant="danger" onClick={() => setDelSrc(c)} aria-label="Delete"><Icon name="trash" size={15} /></Button>
+                </div>
+              </Panel>
+            );
+          })}
         </div>
       )}
 

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   getAudit, listConnectors, listDocuments,
@@ -8,7 +8,7 @@ import {
 import { can } from "@/lib/roles";
 import { useMe } from "@/app/components/AppShell";
 import { Badge, Button, EmptyState, Input, Panel, RiskBadge, Skeleton } from "@/app/components/ui";
-import { KIND_LABEL } from "../connectors/kinds";
+import { KIND_LABEL, KindIcon } from "../connectors/kinds";
 
 const SOURCE_IMAGES: Record<string, string> = {
   gdrive: "/drive.png",
@@ -17,6 +17,29 @@ const SOURCE_IMAGES: Record<string, string> = {
   confluence: "/confluence.png",
   slack: "/slack.png",
 };
+
+/* ---- small helpers ------------------------------------------------------- */
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 5) return "Working late";
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+/** "BLOCK:75:instruction_override,exfiltration" -> { decision, cats } */
+function parseRisk(risk: string | null | undefined) {
+  const [decision = "", , cats = ""] = (risk ?? "").split(":");
+  return { decision, cats: cats.split(",").filter(Boolean) };
+}
+
+const EVENT_TONE: Record<string, string> = {
+  "chat.blocked": "var(--danger)",
+  "chat.query": "var(--success)",
+};
+
+/* ---- page ---------------------------------------------------------------- */
 
 export default function OverviewPage() {
   const me = useMe();
@@ -37,29 +60,94 @@ export default function OverviewPage() {
   }, [me]);
 
   const security = (events ?? []).filter((e) => /BLOCK|FLAG/.test(e.security_risk ?? ""));
+  const totalChunks = (docs ?? []).reduce((n, d) => n + (d.chunk_count ?? 0), 0);
   const connectedSourceTypes = Object.entries(
     (sources ?? [])
-      .filter((source) => source.status === "connected")
-      .reduce<Record<string, number>>((counts, source) => {
-        counts[source.kind] = (counts[source.kind] ?? 0) + 1;
+      .filter((s) => s.status === "connected")
+      .reduce<Record<string, number>>((counts, s) => {
+        counts[s.kind] = (counts[s.kind] ?? 0) + 1;
         return counts;
       }, {})
   ).slice(0, 5);
+  const connectedCount = (sources ?? []).filter((s) => s.status === "connected").length;
+
+  const firstName = me?.email?.split("@")[0]?.split(/[._-]/)[0] ?? "";
+  const today = new Date().toLocaleDateString(undefined, {
+    weekday: "short", day: "numeric", month: "short",
+  });
+
+  /* Suggested prompts, built from what is actually indexed. */
+  const suggestions = useMemo(() => {
+    const out: string[] = [];
+    const titles = (docs ?? []).map((d) => d.title);
+    if (titles[0]) out.push(`Summarize "${titles[0]}"`);
+    if (titles.length >= 2) out.push(`What do "${titles[0]}" and "${titles[1]}" have in common?`);
+    if (out.length < 3) out.push("What documents can my role read?");
+    return out.slice(0, 3);
+  }, [docs]);
+
+  const ask = (text: string) =>
+    router.push(`/ask${text.trim() ? `?q=${encodeURIComponent(text.trim())}` : ""}`);
 
   return (
     <div className="page container">
-      <div className="page-head">
-        <h1>Welcome back</h1>
-        <p className="lead">Your company knowledge, ready to query — under your role&apos;s access.</p>
+      {/* ---------------- header ---------------- */}
+      <div className="page-head ov-head">
+        <div>
+          <h1>
+            {greeting()}{firstName ? `, ${firstName}` : ""}
+            {me?.role && <span className="ov-role mono">{me.role}</span>}
+          </h1>
+          <p className="lead">Your company knowledge, ready to query — under your role&apos;s access.</p>
+        </div>
+        <span className="ov-date mono">{today}</span>
       </div>
 
-      <Panel className="row" style={{ marginBottom: 16 }}>
-        <form className="row grow" onSubmit={(e) => { e.preventDefault(); router.push(`/ask${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ""}`); }}>
+      {/* ---------------- command bar ---------------- */}
+      <Panel className="stack" style={{ marginBottom: 16, gap: 10 }}>
+        <form className="row" onSubmit={(e) => { e.preventDefault(); ask(q); }}>
           <Input className="grow" placeholder="Ask a question about your knowledge…" value={q} onChange={(e) => setQ(e.target.value)} />
           <Button type="submit" variant="primary">Ask</Button>
         </form>
+        <div className="ov-suggest">
+          {suggestions.map((s) => (
+            <button key={s} type="button" className="ov-chip" onClick={() => ask(s)}>{s}</button>
+          ))}
+        </div>
       </Panel>
 
+      {/* ---------------- stat strip ---------------- */}
+      <div className="ov-stats">
+        <div className="ov-stat">
+          <span className="n mono">{docs ? docs.length : "–"}</span>
+          <span className="l">documents uploaded</span>
+        </div>
+        <div className="ov-stat">
+          <span className="n mono">{docs ? totalChunks : "–"}</span>
+          <span className="l">chunks indexed</span>
+        </div>
+        {canConnect && (
+          <div className="ov-stat">
+            <span className="n mono">{connectedCount}</span>
+            <span className="l">sources connected</span>
+          </div>
+        )}
+        {isAdmin ? (
+          <div className="ov-stat">
+            <span className="n mono" style={{ color: security.length ? "var(--warning)" : "var(--success)" }}>
+              {events ? security.length : "–"}
+            </span>
+            <span className="l">queries flagged / blocked</span>
+          </div>
+        ) : (
+          <div className="ov-stat">
+            <span className="n mono" style={{ fontSize: 15 }}>{me?.role ?? "–"}</span>
+            <span className="l">your role</span>
+          </div>
+        )}
+      </div>
+
+      {/* ---------------- cards ---------------- */}
       <div className="grid ov-grid" style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))" }}>
         {/* Knowledge */}
         <Panel className="stack">
@@ -70,7 +158,8 @@ export default function OverviewPage() {
           {!docs && <><Skeleton h={14} /><Skeleton h={14} w="70%" /></>}
           {docs && docs.length === 0 && <EmptyState glyph="▤" title="No documents yet">Upload a file to get started.</EmptyState>}
           {docs && docs.slice(0, 5).map((d) => (
-            <div key={d.id} className="row-between" style={{ fontSize: 13.5 }}>
+            <div key={d.id} className="row" style={{ fontSize: 13.5, gap: 8 }}>
+              {d.source_kind && d.source_kind !== "upload" && <KindIcon kind={d.source_kind} size={13} />}
               <span className="grow" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</span>
               <span className="faint mono" style={{ fontSize: 11 }}>{d.chunk_count}c</span>
             </div>
@@ -83,63 +172,23 @@ export default function OverviewPage() {
           <Panel className="stack">
             <div className="row-between">
               <h3 style={{ fontFamily: "var(--font-sans)", fontSize: 16 }}>Connected sources</h3>
-              {sources && <Badge>{sources.length}</Badge>}
+              {sources && <Badge>{connectedCount}</Badge>}
             </div>
             {!sources && <><Skeleton h={14} /><Skeleton h={14} w="60%" /></>}
-            {sources && connectedSourceTypes.length === 0 && (<EmptyState glyph="⇄" title="No sources">Connect Drive, Confluence, Slack…</EmptyState>)}
-            <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, max-content)",
-              gap: "14px 28px",
-              padding: "8px 0",
-              justifyContent: "start",
-            }}
-          >
-            {connectedSourceTypes.map(([kind, count]) => (
-              <div
-                key={kind}
-                title={KIND_LABEL[kind] ?? kind}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                }}
-              >
-                {SOURCE_IMAGES[kind] ? (
-                  <img
-                    src={SOURCE_IMAGES[kind]}
-                    alt={KIND_LABEL[kind] ?? kind}
-                    width={60}
-                    height={60}
-                    style={{ objectFit: "contain" }}
-                  />
-                ) : (
-                  <span style={{ fontSize: 32, lineHeight: "40px" }}>⇄</span>
-                )}
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    minWidth: 26,
-                    height: 26,
-                    padding: "0 8px",
-                    borderRadius: 999,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    fontVariantNumeric: "tabular-nums",
-                    color: "var(--ink)",
-                    background: "color-mix(in srgb, var(--ink) 8%, transparent)",
-                    border: "1px solid color-mix(in srgb, var(--ink) 15%, transparent)",
-                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
-                  }}
-                >
-                  {count}
-                </span>
-              </div>
-            ))}
-          </div>
+            {sources && connectedSourceTypes.length === 0 && (
+              <EmptyState glyph="⇄" title="No sources">Connect Drive, Confluence, Slack…</EmptyState>
+            )}
+            <div className="ov-sources">
+              {connectedSourceTypes.map(([kind, count]) => (
+                <div key={kind} className="ov-source" title={KIND_LABEL[kind] ?? kind}>
+                  {SOURCE_IMAGES[kind]
+                    ? <img src={SOURCE_IMAGES[kind]} alt={KIND_LABEL[kind] ?? kind} width={26} height={26} style={{ objectFit: "contain" }} />
+                    : <KindIcon kind={kind} size={22} />}
+                  <span className="name">{KIND_LABEL[kind] ?? kind}</span>
+                  {count > 1 && <span className="count mono">{count}</span>}
+                </div>
+              ))}
+            </div>
             <div className="row"><Button size="sm" variant="ghost" onClick={() => router.push("/connectors")}>Manage connectors →</Button></div>
           </Panel>
         )}
@@ -152,13 +201,21 @@ export default function OverviewPage() {
               {events && <Badge tone={security.length ? "warning" : "success"}>{security.length} flagged/blocked</Badge>}
             </div>
             {!events && <><Skeleton h={14} /><Skeleton h={14} w="50%" /></>}
-            {events && security.length === 0 && <p className="muted" style={{ fontSize: 13, margin: 0 }}>No flagged or blocked queries recently.</p>}
-            {security.slice(0, 4).map((e) => (
-              <div key={e.id} className="row-between" style={{ fontSize: 13 }}>
-                <RiskBadge risk={(e.security_risk ?? "").split(":")[0]} />
-                <span className="faint">{new Date(e.created_at).toLocaleTimeString()}</span>
-              </div>
-            ))}
+            {events && security.length === 0 && (
+              <p className="muted" style={{ fontSize: 13, margin: 0 }}>No flagged or blocked queries recently.</p>
+            )}
+            {security.slice(0, 4).map((e) => {
+              const r = parseRisk(e.security_risk);
+              return (
+                <div key={e.id} className="ov-sec-row">
+                  <RiskBadge risk={r.decision} />
+                  <span className="who" title={e.user_email ?? undefined}>
+                    {e.user_email?.split("@")[0] ?? "unknown"}
+                  </span>
+                  <span className="faint mono t">{new Date(e.created_at).toLocaleTimeString()}</span>
+                </div>
+              );
+            })}
             <div className="row"><Button size="sm" variant="ghost" onClick={() => router.push("/audit")}>Open audit log →</Button></div>
           </Panel>
         ) : (
@@ -168,9 +225,46 @@ export default function OverviewPage() {
               You&apos;re signed in as <strong style={{ color: "var(--ink)" }}>{me?.role}</strong>. You can see documents shared
               with your role and ask questions grounded in them.
             </p>
+            <div className="row"><Button size="sm" variant="ghost" onClick={() => router.push("/ask")}>Ask a question →</Button></div>
           </Panel>
         )}
       </div>
+
+      {/* ---------------- recent activity (admin) ---------------- */}
+      {isAdmin && events && events.length > 0 && (
+        <Panel className="stack" style={{ marginTop: 16 }}>
+          <div className="row-between">
+            <h3 style={{ fontFamily: "var(--font-sans)", fontSize: 16 }}>Recent activity</h3>
+            <Button size="sm" variant="ghost" onClick={() => router.push("/audit")}>See everything →</Button>
+          </div>
+          <div className="ov-feed">
+            <div className="ov-feed-row ov-feed-head" aria-hidden="true">
+              <span>Time</span>
+              <span>User</span>
+              <span>Event</span>
+              <span>Detail</span>
+            </div>
+            {events.slice(0, 6).map((e) => {
+              const r = parseRisk(e.security_risk);
+              return (
+                <div key={e.id} className="ov-feed-row">
+                  <span className="mono t">
+                    {new Date(e.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <span className="mono who">{e.user_email ?? "system"}</span>
+                  <span className="mono ev" style={{ color: EVENT_TONE[e.event_type] ?? "var(--primary)" }}>
+                    {e.event_type}
+                  </span>
+                  <span className="mono detail">
+                    {[r.decision || null, e.model_used, e.document_ids?.length ? `${e.document_ids.length} docs` : null]
+                      .filter(Boolean).join(" · ")}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      )}
     </div>
   );
 }

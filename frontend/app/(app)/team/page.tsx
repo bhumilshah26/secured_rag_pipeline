@@ -38,6 +38,7 @@ export default function TeamPage() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("VIEWER");
   const [busy, setBusy] = useState(false);
+  const [removeUser, setRemoveUser] = useState<UserRow | null>(null);
 
   async function refresh() {
     try { setUsers(await listUsers()); }
@@ -62,12 +63,14 @@ export default function TeamPage() {
   }
 
   async function onRemove(u: UserRow) {
-    if (!window.confirm(`Remove ${u.email} from the workspace?`)) return;
+    setBusy(true);
     try {
       await deleteUser(u.id);
       toast.push(`Removed ${u.email}`, "success");
+      setRemoveUser(null);
       refresh();
     } catch (e) { toast.push((e as Error).message, "error"); }
+    finally { setBusy(false); }
   }
 
   const byRole = (r: Role) => (users ?? []).filter((u) => u.role === r);
@@ -105,7 +108,7 @@ export default function TeamPage() {
 
           {/* role-grouped directory */}
           <div className="stack" style={{ gap: 18 }}>
-            {HIERARCHY.map((r) => {
+            {HIERARCHY.filter((r) => byRole(r).length > 0).map((r) => {
               const members = byRole(r);
               return (
                 <section key={r}>
@@ -115,45 +118,51 @@ export default function TeamPage() {
                     <div className="grow" />
                     <Badge>{members.length}</Badge>
                   </div>
-                  {members.length === 0 ? (
-                    <p className="faint" style={{ fontSize: 13, margin: "0 0 0 2px" }}>No members yet.</p>
-                  ) : (
-                    <Panel style={{ padding: 4 }}>
-                      {members.map((u) => (
-                        <div key={u.id} className="member-row">
-                          <span className="avatar" style={{ width: 38, height: 38, fontSize: 15 }}>
-                            {u.email[0]?.toUpperCase()}
-                          </span>
-                          <div className="grow" style={{ minWidth: 0 }}>
-                            <div className="row" style={{ gap: 7 }}>
-                              <span style={{ fontSize: 14, fontWeight: 550, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {u.email}
-                              </span>
-                              {u.id === me?.id && <Badge tone="primary">you</Badge>}
-                            </div>
-                            <div className="faint" style={{ fontSize: 11.5 }}>
-                              Joined {new Date(u.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
-                            </div>
+                  <Panel style={{ padding: 4 }}>
+                    {members.map((u) => (
+                      <div key={u.id} className="member-row">
+                        <span className="avatar" style={{ width: 38, height: 38, fontSize: 15 }}>
+                          {u.email[0]?.toUpperCase()}
+                        </span>
+                        <div className="grow" style={{ minWidth: 0 }}>
+                          <div className="row" style={{ gap: 7 }}>
+                            <span style={{ fontSize: 14, fontWeight: 550, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {u.email}
+                            </span>
+                            {u.id === me?.id && <Badge tone="primary">you</Badge>}
                           </div>
-                          {u.is_active
-                            ? <span className="row" style={{ gap: 6 }}><span className="dot-live" /><span className="faint" style={{ fontSize: 12 }}>active</span></span>
-                            : <Badge tone="warning">inactive</Badge>}
-                          {u.id !== me?.id && (
-                            <Button variant="danger" size="icon" aria-label={`Remove ${u.email}`}
-                              onClick={() => onRemove(u)}><Icon name="trash" size={15} /></Button>
-                          )}
+                          <div className="faint" style={{ fontSize: 11.5 }}>
+                            Joined {new Date(u.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                          </div>
                         </div>
-                      ))}
-                    </Panel>
-                  )}
+                        {u.is_active
+                          ? <span className="row" style={{ gap: 6 }}><span className="dot-live" /><span className="faint" style={{ fontSize: 12 }}>active</span></span>
+                          : <Badge tone="warning">inactive</Badge>}
+                        {u.id !== me?.id && (
+                          <Button variant="danger" size="icon" aria-label={`Remove ${u.email}`}
+                            onClick={() => setRemoveUser(u)}><Icon name="trash" size={15} /></Button>
+                        )}
+                      </div>
+                    ))}
+                  </Panel>
                 </section>
               );
             })}
+            {HIERARCHY.some((r) => byRole(r).length === 0) && (
+                  <p className="faint" style={{ fontSize: 12.5, margin: "4px 2px 0" }}>
+                    No members yet in:{" "}
+                    {HIERARCHY.filter((r) => byRole(r).length === 0).map((r) => (
+                      <span key={r} className="role-pill" style={{ ...pillStyle(r), marginRight: 6, fontSize: 10.5 }}>
+                        <span className="dot" /> {r}
+                      </span>
+                    ))}
+                  </p>
+            )}
           </div>
         </>
       )}
 
-      <details style={{ marginTop: 24 }}>
+      <details open style={{ marginTop: 24 }}>
         <summary className="muted" style={{ cursor: "pointer", fontSize: 13 }}>What each role can do</summary>
         <div className="table-wrap" style={{ marginTop: 10 }}>
           <table className="data">
@@ -183,7 +192,20 @@ export default function TeamPage() {
           <Field label="Email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="person@company.com" disabled={busy} required /></Field>
           <Field label="Role"><Select value={role} onChange={setRole} ariaLabel="Role" disabled={busy}
             options={ALL_ROLES.map((r) => ({ value: r, label: r }))} /></Field>
+          <div className="team-grant">
+            <span className="role-pill" style={pillStyle(role as Role)}><span className="dot" /> {role}</span>
+            <span>{ROLE_BLURB[role as Role]}</span>
+          </div>
         </form>
+      </Dialog>
+
+      <Dialog open={!!removeUser} onClose={() => setRemoveUser(null)} title="Remove member?"
+        footer={<><Button variant="ghost" onClick={() => setRemoveUser(null)}>Cancel</Button>
+          <Button variant="danger" loading={busy} onClick={() => removeUser && onRemove(removeUser)}>Remove</Button></>}>
+        <p style={{ marginTop: 0 }}>
+          <strong>{removeUser?.email}</strong> ({removeUser?.role}) loses access immediately. Their
+          past queries stay in the audit log.
+        </p>
       </Dialog>
     </div>
   );

@@ -51,21 +51,30 @@ export default function KnowledgePage() {
   const [permRoles, setPermRoles] = useState<string[]>([]);
   const [delDoc, setDelDoc] = useState<DocumentOut | null>(null);
 
+  const [dragOver, setDragOver] = useState(false);
+  const [roleLens, setRoleLens] = useState<string>("ALL");
+
   async function refresh() {
     try { setDocs(await listDocuments()); }
     catch (e) { toast.push((e as Error).message, "error"); }
   }
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, []);
 
-  async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]; if (!file) return;
+  async function ingestFile(file: File) {
+    // ← move the existing body of onUpload here, replacing its `file` variable
+    //   (the setBusy/uploadFile/toast/refresh sequence), unchanged otherwise
     setBusy(true);
     try {
       const d = await uploadFile(file, uploadRoles.length ? uploadRoles : ["VIEWER"]);
       toast.push(`Indexed "${d.title}" (${d.chunk_count} chunks)`, "success");
       refresh();
     } catch (err) { toast.push((err as Error).message, "error"); }
-    finally { setBusy(false); if (fileRef.current) fileRef.current.value = ""; }
+    finally { setBusy(false); }
+  }
+  async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (f) await ingestFile(f);
   }
 
   async function onPaste() {
@@ -103,10 +112,31 @@ export default function KnowledgePage() {
 
   const shown = (docs ?? []).filter((d) =>
     withinRange(d.created_at, range) &&
-    (!filter || d.title.toLowerCase().includes(filter.toLowerCase()) || d.status.includes(filter.toLowerCase())));
+    (!filter || d.title.toLowerCase().includes(filter.toLowerCase()) || d.status.includes(filter.toLowerCase())))
+    .filter((d) => roleLens === "ALL" || roleLens === "ADMIN" || d.allowed_roles.includes(roleLens));
 
   return (
-    <div className="page container">
+    <div
+      className="page container"
+      onDragOver={(e) => { if (canIngest) { e.preventDefault(); setDragOver(true); } }}
+      onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOver(false); }}
+      onDrop={(e) => {
+        if (!canIngest) return;
+        e.preventDefault();
+        setDragOver(false);
+        const f = e.dataTransfer.files?.[0];
+        if (f) void ingestFile(f);
+      }}
+    >
+      {dragOver && (
+        <div className="kn-dropveil">
+          <div className="kn-dropcard">
+            <Icon name="upload" size={22} />
+            <strong>Drop to index</strong>
+            <span>PDF · Word · Excel · text — retrievable by: {uploadRoles.join(", ") || "VIEWER"}</span>
+          </div>
+        </div>
+      )}
       <div className="page-head row-between">
         <div>
           <h1>Knowledge</h1>
@@ -129,11 +159,36 @@ export default function KnowledgePage() {
           </div>
         </Panel>
       )}
-
+      {docs && docs.length > 0 && (
+        <div className="ov-stats">
+          <div className="ov-stat">
+            <span className="n mono">{docs.filter((d) => d.status === "indexed").length}</span>
+            <span className="l">indexed</span>
+          </div>
+          <div className="ov-stat">
+            <span className="n mono">{docs.reduce((n, d) => n + (d.chunk_count ?? 0), 0)}</span>
+            <span className="l">chunks in the vector store</span>
+          </div>
+          <div className="ov-stat">
+            <span className="n mono">{new Set(docs.map((d) => d.source_name ?? "upload")).size}</span>
+            <span className="l">sources</span>
+          </div>
+          {docs.some((d) => d.status === "failed") && (
+            <div className="ov-stat">
+              <span className="n mono" style={{ color: "var(--danger)" }}>
+                {docs.filter((d) => d.status === "failed").length}
+              </span>
+              <span className="l">failed</span>
+            </div>
+          )}
+        </div>
+      )}
       <div className="row" style={{ marginBottom: 12 }}>
         <Input className="grow" placeholder="Filter by title or status…" value={filter} onChange={(e) => setFilter(e.target.value)} />
         <Select value={range} onChange={(v) => setRange(v as TimeRange)} ariaLabel="Time range" style={{ maxWidth: 180 }}
           options={TIME_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
+        <Select value={roleLens} onChange={(v) => setRoleLens(v)} ariaLabel="Visible to role" style={{ maxWidth: 160 }}
+          options={[{ value: "ALL", label: "All roles" }, ...ALL_ROLES.map((r) => ({ value: r, label: `Visible to ${r}` }))]} />
       </div>
 
       {!docs && <Panel className="stack"><Skeleton h={16} /><Skeleton h={16} /><Skeleton h={16} /></Panel>}
@@ -162,7 +217,11 @@ export default function KnowledgePage() {
                   </td>
                   <td className="mono faint">{d.chunk_count}</td>
                   <td><StatusBadge status={d.status} /></td>
-                  <td><span className="muted" style={{ fontSize: 12.5 }}>{d.allowed_roles.join(", ")}</span></td>
+                  <td>
+                    <span className="cluster" style={{ gap: 4 }}>
+                      {d.allowed_roles.map((r) => <span key={r} className="kn-role mono">{r}</span>)}
+                    </span>
+                  </td>
                   {canPerms && (
                     <td>
                       <div className="row" style={{ flexWrap: "nowrap", justifyContent: "flex-end" }}>

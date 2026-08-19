@@ -4,7 +4,7 @@ import type { JSX } from "react";
 export type IconName =
   | "overview" | "ask" | "knowledge" | "connectors" | "audit" | "team" | "settings"
   | "logout" | "sun" | "moon" | "search" | "upload" | "trash" | "plus" | "check" | "x"
-  | "chevron-down" | "chevron-left" | "chevron-right" | "calendar" | "menu" | "pencil"
+  | "chevron-down" | "chevron-left" | "chevron-right" | "calendar" | "copy" | "menu" | "pencil"
   | "shield" | "file" | "external" | "filter" | "user" | "eye" | "eye-off"
   | "gdrive" | "onedrive" | "sharepoint" | "stop" | "confluence" | "slack" | "plug";
 
@@ -31,6 +31,12 @@ const P: Record<IconName, JSX.Element> = {
   "chevron-left": <polyline points="15 18 9 12 15 6" />,
   "chevron-right": <polyline points="9 18 15 12 9 6" />,
   calendar: <><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></>,
+  copy: (
+    <>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </>
+  ),
   shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
   user: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
   eye: <><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></>,
