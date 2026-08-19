@@ -178,11 +178,13 @@ export type StreamHandlers = {
 export async function chatStream(
   query: string,
   conversationId: string | null,
-  h: StreamHandlers
+  h: StreamHandlers,
+  signal?: AbortSignal
 ): Promise<void> {
   const token = getToken();
   const res = await fetch(`${BASE}/chat/stream`, {
     method: "POST",
+    signal,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

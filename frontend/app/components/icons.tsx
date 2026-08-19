@@ -6,7 +6,7 @@ export type IconName =
   | "logout" | "sun" | "moon" | "search" | "upload" | "trash" | "plus" | "check" | "x"
   | "chevron-down" | "chevron-left" | "chevron-right" | "calendar" | "menu" | "pencil"
   | "shield" | "file" | "external" | "filter" | "user" | "eye" | "eye-off"
-  | "gdrive" | "onedrive" | "sharepoint" | "confluence" | "slack" | "plug";
+  | "gdrive" | "onedrive" | "sharepoint" | "stop" | "confluence" | "slack" | "plug";
 
 const P: Record<IconName, JSX.Element> = {
   overview: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /></>,
@@ -43,6 +43,7 @@ const P: Record<IconName, JSX.Element> = {
   sharepoint: <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />,
   confluence: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>,
   slack: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
+  stop: <rect x="6" y="6" width="12" height="12" rx="2" />,
   plug: <><path d="M12 22v-5" /><path d="M9 7V2" /><path d="M15 7V2" /><path d="M6 13V8h12v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4z" /></>,
 };
 

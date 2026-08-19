@@ -27,6 +27,9 @@ export default function AskPage() {
   const [paneOpen, setPaneOpen] = useState(true);
   const threadRef = useRef<HTMLDivElement>(null);
   const ranInitial = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const stop = () => abortRef.current?.abort();
 
   // Restore the sidebar open/closed preference.
   useEffect(() => {
@@ -71,6 +74,8 @@ export default function AskPage() {
     if (!text || loading) return;
     setQuery("");
     setLoading(true);
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     const wasNew = !currentId;
 
     const userMsg: ChatMessage = { id: uid(), role: "user", content: text };
@@ -104,13 +109,16 @@ export default function AskPage() {
             model: e.model_used,
             streaming: false,
           })),
-      });
+      }, ctrl.signal);
     } catch (err) {
-      patch((m) => ({ ...m, error: (err as Error).message, streaming: false }));
+      if ((err as Error).name === "AbortError") {
+        patch((m) => ({ ...m, streaming: false }));   // keep partial text, just stop
+      } else {
+        patch((m) => ({ ...m, error: (err as Error).message, streaming: false }));
+      }
     } finally {
+      abortRef.current = null;
       setLoading(false);
-      // Refresh the sidebar so a new thread appears (with its title) and existing
-      // threads re-sort by latest activity.
       void refreshConversations();
     }
   }
@@ -176,9 +184,15 @@ export default function AskPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <Button type="submit" variant="primary" loading={loading} disabled={!query.trim()}>
-            <Icon name="ask" size={16} /> Send
-          </Button>
+          {loading ? (
+            <Button type="button" variant="ghost" onClick={stop}>
+              <Icon name="stop" size={15} /> Stop
+            </Button>
+          ) : (
+            <Button type="submit" variant="primary" disabled={!query.trim()}>
+              <Icon name="ask" size={16} /> Send
+            </Button>
+          )}
         </form>
       </div>
     </div>
