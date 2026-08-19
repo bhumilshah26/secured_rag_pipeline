@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { chatStream } from "@/lib/api";
 import { useChat, type ChatMessage } from "@/app/components/AskStore";
-import { Badge, Button, EmptyState, Input, RiskBadge } from "@/app/components/ui";
+import { Badge, Button, Dialog, EmptyState, Input, RiskBadge } from "@/app/components/ui";
 import { Icon } from "@/app/components/icons";
 import { Markdown } from "@/app/components/Markdown";
 
@@ -190,6 +190,13 @@ function ConvoPane({ disabled }: { disabled: boolean }) {
     useChat();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string } | null>(null);
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    void removeConversation(pendingDelete.id);
+    setPendingDelete(null);
+  };
 
   const startRename = (id: string, title: string) => {
     setEditingId(id);
@@ -278,7 +285,7 @@ function ConvoPane({ disabled }: { disabled: boolean }) {
                       aria-label="Delete conversation"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (confirm("Delete this conversation?")) void removeConversation(c.id);
+                        setPendingDelete({ id: c.id, title: c.title });
                       }}
                     >
                       <Icon name="trash" size={13} />
@@ -290,6 +297,22 @@ function ConvoPane({ disabled }: { disabled: boolean }) {
           })
         )}
       </div>
+      <Dialog
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        title="Delete chat?"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPendingDelete(null)}>Cancel</Button>
+            <Button variant="danger" onClick={confirmDelete}>Delete</Button>
+          </>
+        }
+      >
+        <p className="muted" style={{ fontSize: 14 }}>
+          This will delete <strong style={{ color: "var(--ink)" }}>{pendingDelete?.title}</strong>.
+          This can’t be undone.
+        </p>
+      </Dialog>
     </aside>
   );
 }
