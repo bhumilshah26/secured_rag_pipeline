@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { clearToken, getMe, getToken, type Me } from "@/lib/api";
+import { getMe, logout, type Me } from "@/lib/api";
 import { can, type Capability } from "@/lib/roles";
 import { ThemeToggle } from "./theme";
 import { Skeleton } from "./ui";
@@ -9,7 +9,11 @@ import { Icon, type IconName } from "./icons";
 import { Menu, MenuItem } from "./Menu";
 
 const MeCtx = createContext<Me | null>(null);
-export const useMe = () => useContext(MeCtx);
+export const useMe = (): Me => {
+  const me = useContext(MeCtx);
+  if (!me) throw new Error("useMe must be used inside AppShell");
+  return me;
+};
 
 type NavItem = { href: string; label: string; icon: IconName; cap?: Capability };
 const NAV: NavItem[] = [
@@ -29,12 +33,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!getToken()) { router.replace("/login"); return; }
     getMe().then((m) => {
       setMe(m); setReady(true);
       if (m.must_change_password && pathname !== "/settings") router.replace("/settings");
     })
-      .catch(() => { clearToken(); router.replace("/login"); });
+      .catch(() => router.replace("/login"));
   }, [router, pathname]);
 
   if (!ready || !me) {
@@ -107,7 +110,10 @@ function Topbar({ me }: { me: Me }) {
           <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{me.role}</div>
         </div>
         <MenuItem icon={<Icon name="settings" size={16} />} onClick={() => router.push("/settings")}>Settings</MenuItem>
-        <MenuItem icon={<Icon name="logout" size={16} />} danger onClick={() => { clearToken(); router.replace("/login"); }}>Log out</MenuItem>
+        <MenuItem icon={<Icon name="logout" size={16} />} danger
+          onClick={async () => { try { await logout(); } finally { router.replace("/login"); } }}>
+          Log out
+        </MenuItem>  
       </Menu>
     </header>
   );

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/app/components/Toast";
 import { useRouter } from "next/navigation";
-import { login, setToken, verifyOtp } from "@/lib/api";
+import { login, verifyOtp } from "@/lib/api";
 import { Button, Field, Input, PasswordInput, Panel } from "@/app/components/ui";
 import { ThemeToggle } from "@/app/components/theme";
 import { OtpInput } from "@/app/components/OtpInput";
@@ -34,7 +34,6 @@ export default function LoginPage() {
         setUserPending(true);
         setCooldown(30);
       } else {
-        setToken(res.access_token);
         router.replace("/overview");
       }
     } catch (err) {
@@ -68,8 +67,7 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const res = await verifyOtp({ email, code, purpose: "login" });
-      setToken(res.access_token);
+      await verifyOtp({ email, code, purpose: "login" });
       router.replace("/overview");
     } catch (err) {
       const e = err as Error & { status?: number };

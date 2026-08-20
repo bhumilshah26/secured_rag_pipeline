@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getToken } from "@/lib/api";
+import { getMe } from "@/lib/api";
 import { ALL_ROLES, CAPABILITY_MATRIX } from "@/lib/roles";
 import { Icon } from "@/app/components/icons";
 import { ThemeToggle } from "@/app/components/theme";
@@ -134,7 +134,7 @@ function RoleLens() {
 
 export default function Landing() {
   const [signedIn, setSignedIn] = useState(false);
-  useEffect(() => setSignedIn(!!getToken()), []);
+  useEffect(() => { getMe().then(() => setSignedIn(true)).catch(() => setSignedIn(false)); }, []);
   const [trace, setTrace] = useState<"grounded" | "blocked">("grounded");
   const t = TRACES[trace];
 
