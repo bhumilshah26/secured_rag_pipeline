@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    name: Backend · pytest (tenant isolation · RBAC · prompt guard · PII)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: rag
+          POSTGRES_DB: rag
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rag"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      qdrant:
+        image: qdrant/qdrant:v1.12.1
+        ports: ["6333:6333"]
+
+    env:
+      # Everything the test suite needs. No API keys, no mail, no model downloads.
+      APP_ENV: test
+      SECRET_KEY: ci-only-secret
+      LLM_PROVIDER: echo
+      EMBEDDING_PROVIDER: fastembed
+      OTP_ENABLED: "false"
+      MAIL_PROVIDER: console
+      OCR_ENABLED: "false"
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag
+      POSTGRES_DB: rag
+      QDRANT_URL: http://localhost:6333
+      QDRANT_COLLECTION: ci_rag_chunks
+      PROMPT_GUARD_FLAG_THRESHOLD: "40"
+      PROMPT_GUARD_BLOCK_THRESHOLD: "70"
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch backend from Hugging Face Space
+        run: git clone --depth 1 https://huggingface.co/spaces/bhumilshah/aegis-backend backend
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies (incl. dev group)
+        run: uv sync --frozen
+
+      - name: Wait for Qdrant
+        run: |
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:6333/readyz && break
+            sleep 2
+          done
+
+      - name: Run tests
+        run: uv run pytest -q --maxfail=1 --junitxml=pytest-report.xml
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-report
+          path: backend/pytest-report.xml
+
+  frontend-build:
+    name: Frontend · type-check & build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_API_BASE: http://localhost:8000

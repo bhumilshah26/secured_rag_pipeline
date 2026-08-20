@@ -24,4 +24,5 @@ qdrant_data/
 .idea/
 .vscode/
 
-PROJECT_GUIDE.mdbackend/
+PROJECT_GUIDE.md
+backend/
