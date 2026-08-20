@@ -169,7 +169,7 @@ export default function ConnectorsPage() {
                   {!on && (
                     <Button size="sm" variant="primary" loading={busy === c.id} onClick={() => onConnect(c)}>Connect</Button>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => router.push(`/connectors/${c.id}`)}>Browse &amp; index →</Button>
+                  <Button size="sm" variant="ghost" onClick={() => router.push(`/connectors/${c.id}`)}>Browse &amp; upload →</Button>
                   <div className="grow" />
                   <Button size="sm" variant="danger" onClick={() => setDelSrc(c)} aria-label="Delete"><Icon name="trash" size={15} /></Button>
                 </div>
