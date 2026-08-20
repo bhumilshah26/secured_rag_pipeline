@@ -1,27 +1,14 @@
 // Typed fetch wrapper. JWT kept in localStorage for the MVP (move to httpOnly cookie later).
-const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+const BASE = "/api";
 
-export function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("token");
-}
-
-export function setToken(token: string) {
-  localStorage.setItem("token", token);
-}
-
-export function clearToken() {
-  localStorage.removeItem("token");
-}
+const COMMON_HEADERS = { "X-Requested-With": "XMLHttpRequest" };
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getToken();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(init.headers as Record<string, string>),
-  };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...COMMON_HEADERS, ...(init.headers as Record<string, string>) },
+  });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const err = new Error(
@@ -95,6 +82,7 @@ export async function login(email: string, password: string) {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
+    credentials: "include"
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -181,15 +169,14 @@ export async function chatStream(
   h: StreamHandlers,
   signal?: AbortSignal
 ): Promise<void> {
-  const token = getToken();
   const res = await fetch(`${BASE}/chat/stream`, {
     method: "POST",
     signal,
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ query, conversation_id: conversationId ?? null }),
+    credentials: "include"
   });
   if (!res.ok || !res.body) {
     const body = await res.json().catch(() => ({}));
@@ -299,14 +286,13 @@ export type DocumentOut = {
 // Upload a local file via multipart/form-data. Don't set Content-Type — the browser
 // sets the multipart boundary automatically.
 export async function uploadFile(file: File, allowed_roles: string[]): Promise<DocumentOut> {
-  const token = getToken();
   const form = new FormData();
   form.append("file", file);
   form.append("allowed_roles", allowed_roles.join(","));
   const res = await fetch(`${BASE}/documents/upload`, {
     method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
+    credentials: "include"
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -416,4 +402,8 @@ export function syncConnector(sourceId: string) {
     `/connectors/${sourceId}/sync`,
     { method: "POST" }
   );
+}
+
+export function logout() {
+  return request<{ logged_out: boolean }>("/auth/logout", { method: "POST" });
 }
